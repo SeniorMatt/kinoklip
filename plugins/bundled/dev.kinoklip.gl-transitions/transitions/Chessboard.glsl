@@ -4,7 +4,7 @@
 // Tags: grid, squares, pattern
 
 vec4 transition(vec2 uv) {
-    vec2 st = uv * u_grid_num;
+    vec2 st = uv * u_gridNum;
     vec2 idx = floor(st);
     vec2 grid = fract(st);
 

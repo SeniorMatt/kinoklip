@@ -16,8 +16,8 @@ vec4 premultiply(vec4 c) {
 }
 
 vec4 transition(vec2 uv) {
-  float dl = length((vec2(u_direction_x, u_direction_y)));
-  vec2 d = dl > 1e-6 ? (vec2(u_direction_x, u_direction_y)) / dl : vec2(0.970143, 0.242536);
+  float dl = length((vec2(u_directionX, u_directionY)));
+  vec2 d = dl > 1e-6 ? (vec2(u_directionX, u_directionY)) / dl : vec2(0.970143, 0.242536);
   vec2 q = (uv - 0.5) * vec2(ratio, 1.0);
   vec2 b = vec2(0.5 * ratio, 0.5);
   float p = progress;
@@ -32,7 +32,7 @@ vec4 transition(vec2 uv) {
   vec4 tc = getToColor(clamp(0.5 + (uv - 0.5) / sc, 0.0, 1.0));
   tc.rgb *= 1.0 - 0.35 * k * k;
   // the cards are opaque: each one replaces what is behind it, keeping its image's alpha
-  vec4 col = mix(premultiply(u_back_color), premultiply(tc), cb);
+  vec4 col = mix(premultiply(u_backColor), premultiply(tc), cb);
 
   float t = clamp(p / 0.75, 0.0, 1.0);
   float lift = smoothstep(0.0, 0.15, p);

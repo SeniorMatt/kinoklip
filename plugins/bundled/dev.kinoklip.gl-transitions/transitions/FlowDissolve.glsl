@@ -56,7 +56,7 @@ vec2 fold(vec2 p, vec2 s) {
 }
 
 vec4 transition(vec2 uv) {
-  vec2 d = normalize((vec2(u_direction_x, u_direction_y)));
+  vec2 d = normalize((vec2(u_directionX, u_directionY)));
   vec2 s = vec2(ratio, 1.0) / min(ratio, 1.0);
   vec2 x = (uv - 0.5) * s;
   float e = progress * progress * (3.0 - 2.0 * progress);

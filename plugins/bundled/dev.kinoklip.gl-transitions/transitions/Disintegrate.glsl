@@ -43,10 +43,10 @@ float release(vec2 center, float h, float halfLength, float s) {
 }
 
 vec4 transition(vec2 uv) {
-  vec2 d = length((vec2(u_direction_x, u_direction_y))) > 0.0 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(1.0, 0.0);
+  vec2 d = length((vec2(u_directionX, u_directionY))) > 0.0 ? normalize((vec2(u_directionX, u_directionY))) : vec2(1.0, 0.0);
   vec2 n = vec2(-d.y, d.x);
   vec2 fp = (uv - 0.5) * vec2(ratio, 1.0);
-  float s = u_particle_size;
+  float s = u_particleSize;
   vec2 g = vec2(dot(fp, d), dot(fp, n)) / s;
   float halfLength = 0.5 * (ratio * abs(d.x) + abs(d.y)) / s;
   // the longest flight, in cells (at most 60, within the 64 cells looked back to)

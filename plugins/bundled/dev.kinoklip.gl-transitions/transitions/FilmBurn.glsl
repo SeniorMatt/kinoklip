@@ -11,7 +11,7 @@ float sigmoid(float x, float a) {
 	return b;
 }
 float rand(float co){
-    return fract(sin((co*24.9898)+u_seed)*43758.5453);
+    return fract(sin((co*24.9898)+u_Seed)*43758.5453);
 }
 float rand(vec2 co){
     return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
@@ -22,7 +22,7 @@ float ease(float x) {
     return x > .5 ? 1.-2.*(1.-x)*(1.-x) : 2.*x*x;
 }
 float random(vec2 co, float k) {
-    return fract(sin(dot(co+10., vec2(12.9898+(k*.5),78.233+u_seed))) * 43758.5453);
+    return fract(sin(dot(co+10., vec2(12.9898+(k*.5),78.233+u_Seed))) * 43758.5453);
 }
 vec4 corners(vec2 co, float k) {
     vec2 c = floor(co);

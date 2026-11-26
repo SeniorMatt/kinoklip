@@ -6,11 +6,11 @@
 
 vec4 transition (vec2 uv) {
   
-  float distance = length(uv - (vec2(u_center_x, u_center_y)));
+  float distance = length(uv - (vec2(u_centerX, u_centerY)));
   float radius = sqrt(8.0) * abs(progress - 0.5);
   
   if (distance > radius) {
-    return u_back_color;
+    return u_backColor;
   }
   else {
     if (progress < 0.5) return getFromColor(uv);

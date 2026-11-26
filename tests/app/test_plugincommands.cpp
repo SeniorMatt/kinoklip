@@ -402,7 +402,8 @@ private slots:
         const QString bundled = QFileInfo(QStringLiteral(__FILE__)).absolutePath()
             + QStringLiteral("/../../plugins/bundled");
         QString error;
-        for (const char* name : {"dev.kinoklip.gl-transitions", "dev.kinoklip.transition-presets"})
+        for (const char* name : {"dev.kinoklip.gl-transitions", "dev.kinoklip.gl-transitions-2",
+                 "dev.kinoklip.transition-presets"})
             QVERIFY2(PluginRegistry::instance().install(
                          bundled + QLatin1Char('/') + QLatin1String(name), &error),
                 qPrintable(error));
@@ -460,7 +461,7 @@ private slots:
                      QStringLiteral("plugin:dev.kinoklip.transition-presets/whip_pan")),
             1);
         QCOMPARE(project.timeline()->data().videoTracks[0].clips[1].transitionIn->type,
-            QString("plugin:dev.kinoklip.gl-transitions/whip_pan"));
+            QString("plugin:dev.kinoklip.gl-transitions-2/whip_pan"));
         // a clip preset does not run at an edit point and the reverse
         QCOMPARE(host.applyPresetAtEdge(project, ids[1], true,
                      QStringLiteral("plugin:dev.kinoklip.animation-pack/fade_in")),

@@ -9,7 +9,7 @@ float slipCount() {
 
 // The picture stream at x: outgoing copies, then incoming ones, with a bar between them
 vec4 stream(float x, float y, float unsync) {
-  float period = 1.0 + u_bar_width;
+  float period = 1.0 + u_barWidth;
   float n = floor(x / period);
   float xm = x - n * period;
   vec2 q = vec2(min(xm, 1.0), y);
@@ -18,12 +18,12 @@ vec4 stream(float x, float y, float unsync) {
   float d = min(xm, 1.0 - xm);
   float g = max(1.0 - d / 0.05, 0.0);
   c.rgb += 0.3 * unsync * g * g * c.a;
-  float soft = min(0.012 * unsync, 0.5 * u_bar_width) + 1e-5;
-  return mix(u_bar_color, c, clamp(d / soft, 0.0, 1.0));
+  float soft = min(0.012 * unsync, 0.5 * u_barWidth) + 1e-5;
+  return mix(u_barColor, c, clamp(d / soft, 0.0, 1.0));
 }
 
 vec4 transition(vec2 uv) {
-  float period = 1.0 + u_bar_width;
+  float period = 1.0 + u_barWidth;
   // the sync error grows then fades; the slip is its integral, a whole number of periods
   float t = min(progress / 0.88, 1.0);
   float err = 16.0 * t * t * (1.0 - t) * (1.0 - t);

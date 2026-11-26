@@ -87,7 +87,7 @@ vec4 transition(vec2 uv) {
   vec4 c = mix(vec4(a.rgb * a.a, a.a), vec4(b.rgb * b.a, b.a), m);
 
   float cap = barX * smoothstep(capY - AA, capY + AA, uv.y) * (1.0 - smoothstep(capY + CAP - AA, capY + CAP + AA, uv.y));
-  cap *= u_cap_color.a * smoothstep(0.0, 0.05, progress) * (1.0 - smoothstep(0.95, 1.0, progress));
-  c = mix(c, vec4(u_cap_color.rgb, 1.0), cap);
+  cap *= u_capColor.a * smoothstep(0.0, 0.05, progress) * (1.0 - smoothstep(0.95, 1.0, progress));
+  c = mix(c, vec4(u_capColor.rgb, 1.0), cap);
   return c.a > 0.0 ? vec4(c.rgb / c.a, c.a) : vec4(0.0);
 }

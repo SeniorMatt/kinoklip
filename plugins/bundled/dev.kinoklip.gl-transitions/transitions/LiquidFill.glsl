@@ -25,7 +25,7 @@ float surface (float x, float t) {
 vec4 transition (vec2 uv) {
   vec4 a = getFromColor(uv);
 
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 0.0 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(0.0, 1.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 0.0 ? normalize((vec2(u_directionX, u_directionY))) : vec2(0.0, 1.0);
   vec2 across = vec2(-dir.y, dir.x);
   // measured in square pixels, so the waves and bubbles are not stretched
   vec2 p = (uv - 0.5) * vec2(ratio, 1.0);

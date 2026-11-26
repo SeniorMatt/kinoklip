@@ -15,7 +15,7 @@ vec4 transition (vec2 uv) {
   float p = progress;
   vec2 S = vec2(ratio, 1.0);
   // snapped to an axis so that the wedge runs from one edge of the frame to the opposite one
-  vec2 D = abs((vec2(u_direction_x, u_direction_y)).x) > abs((vec2(u_direction_x, u_direction_y)).y) ? vec2(sign((vec2(u_direction_x, u_direction_y)).x), 0.0) : vec2(0.0, (vec2(u_direction_x, u_direction_y)).y > 0.0 ? 1.0 : -1.0);
+  vec2 D = abs((vec2(u_directionX, u_directionY)).x) > abs((vec2(u_directionX, u_directionY)).y) ? vec2(sign((vec2(u_directionX, u_directionY)).x), 0.0) : vec2(0.0, (vec2(u_directionX, u_directionY)).y > 0.0 ? 1.0 : -1.0);
   vec2 N = vec2(-D.y, D.x);
   vec2 q = (uv - 0.5) * S;
   float len = abs(D.x) * ratio + abs(D.y);

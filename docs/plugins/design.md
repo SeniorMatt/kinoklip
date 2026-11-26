@@ -66,7 +66,7 @@ Nothing below is implemented yet; the order is by value over work.
 
 ### 1. gl-transitions and shader packs (done: the base and the bundled pack, spec 160)
 
-The pack `plugins/bundled/dev.kinoklip.gl-transitions` has 394 of the 401 transitions of the
+The pack (`plugins/bundled/dev.kinoklip.gl-transitions` and `-2`: a plugin holds at most 200 transitions) has 394 of the 401 transitions of the
 collection (the others: BSD or unnamed licence, a link to Shadertoy, texture inputs), made by
 `scripts/convert_gl_transitions.py` and installed in `share/kinoklip/plugins`; it shows in
 Effects library > Transitions > GL Transitions.

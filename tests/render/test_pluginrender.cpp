@@ -365,19 +365,23 @@ private slots:
     // comes out empty (a NaN in a shader gives transparent black in an 8 bit target).
     void glTransitionsPackCompilesAndRenders()
     {
-        const QString folder = bundledDir() + QStringLiteral("/dev.kinoklip.gl-transitions");
-        QVERIFY(QFileInfo(folder + QStringLiteral("/plugin.json")).exists());
-        QVERIFY(QFileInfo(folder + QStringLiteral("/LICENSE")).exists());
         PluginRegistry& reg = PluginRegistry::instance();
         QString error;
-        QVERIFY2(reg.install(folder, &error), qPrintable(error));
-        const PluginValidation v = validatePluginFolder(folder, m_gl);
+        QVector<ValidatedItem> items;
         QString text;
-        for (const plugins::Problem& p : v.problems)
-            text += p.text() + QLatin1Char('\n');
-        QVERIFY2(v.valid, qPrintable(text));
-        QVERIFY2(v.items.size() > 300, "the pack lost its transitions");
-        for (const ValidatedItem& item : v.items) {
+        for (const char* name : {"dev.kinoklip.gl-transitions", "dev.kinoklip.gl-transitions-2"}) {
+            const QString folder = bundledDir() + QLatin1Char('/') + QLatin1String(name);
+            QVERIFY(QFileInfo(folder + QStringLiteral("/plugin.json")).exists());
+            QVERIFY(QFileInfo(folder + QStringLiteral("/LICENSE")).exists());
+            QVERIFY2(reg.install(folder, &error), qPrintable(error));
+            const PluginValidation v = validatePluginFolder(folder, m_gl);
+            for (const plugins::Problem& p : v.problems)
+                text += p.text() + QLatin1Char('\n');
+            items += v.items;
+        }
+        QVERIFY2(text.isEmpty(), qPrintable(text.left(6000)));
+        QVERIFY2(items.size() > 300, "the pack lost its transitions");
+        for (const ValidatedItem& item : std::as_const(items)) {
             QVERIFY2(item.desktop != QLatin1String("error"), qPrintable(item.fullId));
             QVERIFY2(item.gles != QLatin1String("error"), qPrintable(item.fullId));
         }
@@ -388,7 +392,7 @@ private slots:
         b.invertPixels(QImage::InvertRgb);
         QStringList startBad, endBad, emptyBad, failed;
         int count = 0;
-        for (const ValidatedItem& item : v.items) {
+        for (const ValidatedItem& item : std::as_const(items)) {
             QString why;
             ParamSet defaults; // the manifest defaults
             if (const EffectDescriptor* d = EffectRegistry::instance().find(item.fullId)) {
@@ -426,6 +430,7 @@ private slots:
         QVERIFY2(endBad.isEmpty(), qPrintable(endBad.join(QLatin1Char(' '))));
         QVERIFY2(emptyBad.isEmpty(), qPrintable(emptyBad.join(QLatin1Char(' '))));
         QVERIFY(reg.uninstall(QStringLiteral("dev.kinoklip.gl-transitions"), &error));
+        QVERIFY(reg.uninstall(QStringLiteral("dev.kinoklip.gl-transitions-2"), &error));
     }
 
     void everyExampleCompilesForBothApis()

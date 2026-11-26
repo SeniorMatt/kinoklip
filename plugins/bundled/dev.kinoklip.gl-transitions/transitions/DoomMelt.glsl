@@ -24,11 +24,11 @@ float wave(int num) {
 }
 
 float drip(int num) {
-  return sin(float(num) / float(u_bars - 1) * 3.141592) * u_drip_scale;
+  return sin(float(num) / float(u_bars - 1) * 3.141592) * u_dripScale;
 }
 
 float pos(int num) {
-  return (u_noise == 0.0 ? wave(num) : mix(wave(num), rand(num), u_noise)) + (u_drip_scale == 0.0 ? 0.0 : drip(num));
+  return (u_noise == 0.0 ? wave(num) : mix(wave(num), rand(num), u_noise)) + (u_dripScale == 0.0 ? 0.0 : drip(num));
 }
 
 vec4 transition(vec2 uv) {

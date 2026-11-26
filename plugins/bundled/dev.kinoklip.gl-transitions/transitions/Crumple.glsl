@@ -74,7 +74,7 @@ vec4 transition(vec2 uv) {
   float t = smoothstep(0.58, 1.0, progress);
   t *= t;
 
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 0.0 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(1.0, 0.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 0.0 ? normalize((vec2(u_directionX, u_directionY))) : vec2(1.0, 0.0);
   float radius = max(u_size, 0.01) * mix(1.0, 0.6, t);
   // far enough along the direction for the ball and its shadow (offset and blurred by up
   // to about 0.09 each) to leave the frame

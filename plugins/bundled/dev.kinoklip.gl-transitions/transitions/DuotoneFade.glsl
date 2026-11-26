@@ -37,7 +37,7 @@ vec4 transition(vec2 uv) {
 
   float c = 0.4 * u_contrast;
   float tone = smoothstep(c + 0.03, 1.03 - c, mix(la, lb, s) + 0.08 * u_grain * g);
-  vec4 ink = mix(u_shadow_ink, u_highlight_ink, tone);
+  vec4 ink = mix(u_shadowInk, u_highlightInk, tone);
 
   // the images are blended with premultiplied alpha, and where neither is drawn nothing is printed
   vec4 base = mix(vec4(a.rgb * a.a, a.a), vec4(b.rgb * b.a, b.a), s);

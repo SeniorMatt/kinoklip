@@ -10,7 +10,7 @@
 vec4 transition(vec2 uv) {
   float T = progress;
   float half_ = 0.5;
-  float D = (T < half_) ? mix(0.0, u_blur_size, T / half_) : mix(u_blur_size, 0.0, (T - half_) / half_);
+  float D = (T < half_) ? mix(0.0, u_blurSize, T / half_) : mix(u_blurSize, 0.0, (T - half_) / half_);
   vec4 C0 = getFromColor(uv);
   vec4 C1 = getToColor(uv);
   C0 += getFromColor(vec2(-0.326, -0.406) * D + uv);

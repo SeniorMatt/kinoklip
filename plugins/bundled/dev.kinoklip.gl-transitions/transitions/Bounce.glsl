@@ -15,9 +15,9 @@ vec4 transition (vec2 uv) {
   return mix(
     mix(
       to,
-      vec4(u_shadow_colour.rgb, 1.0), // shadow_colour.a is in the amount: the shadow darkens, it does not make the image transparent
-      step(d, u_shadow_height) * (1. - mix(
-        ((d / u_shadow_height) * u_shadow_colour.a) + (1.0 - u_shadow_colour.a),
+      vec4(u_shadowColour.rgb, 1.0), // shadow_colour.a is in the amount: the shadow darkens, it does not make the image transparent
+      step(d, u_shadowHeight) * (1. - mix(
+        ((d / u_shadowHeight) * u_shadowColour.a) + (1.0 - u_shadowColour.a),
         1.0,
         smoothstep(0.95, 1., progress)
       )) * to.a // cast on the incoming image, not on its transparent areas

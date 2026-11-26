@@ -19,19 +19,19 @@ vec4 film(float x, float y, float base, float n, float aa, float holeX, vec2 hol
   float jy = floor(y / pitch);
   float j = base + jy;
   float fy = y - jy * pitch;
-  vec4 c = u_film_color;
+  vec4 c = u_filmColor;
   if (x >= 0.0 && x <= 1.0 && fy <= 1.0) {
     vec2 q = vec2(x, fy);
     c = j < n ? getFromColor(q) : getToColor(q);
   }
   // soft edges for the picture during the slip (none at rest, where it fills the frame)
   float inside = min(min(x, 1.0 - x) * ratio, min(fy, 1.0 - fy));
-  c = mix(u_film_color, c, clamp(inside / aa + 0.5, 0.0, 1.0));
+  c = mix(u_filmColor, c, clamp(inside / aa + 0.5, 0.0, 1.0));
   float hy = mod(y, pitch / HOLES) - 0.5 * pitch / HOLES;
   float hx = (abs(x - 0.5) - holeX) * ratio;
   vec2 dd = abs(vec2(hx, hy)) - holeSize + 0.3 * holeSize.x;
   float sd = length(max(dd, 0.0)) + min(max(dd.x, dd.y), 0.0) - 0.3 * holeSize.x;
-  return mix(c, u_hole_color, clamp(0.5 - sd / aa, 0.0, 1.0) * holes);
+  return mix(c, u_holeColor, clamp(0.5 - sd / aa, 0.0, 1.0) * holes);
 }
 
 vec4 transition(vec2 uv) {

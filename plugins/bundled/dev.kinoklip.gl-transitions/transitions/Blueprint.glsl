@@ -31,7 +31,7 @@ float edge(vec4 xp, vec4 xm, vec4 yp, vec4 ym) {
 vec4 transition(vec2 uv) {
   float p = progress;
   vec2 q = uv * vec2(ratio, 1.0);
-  vec2 e = vec2(0.0025 / ratio, 0.0025) * u_line_width;
+  vec2 e = vec2(0.0025 / ratio, 0.0025) * u_lineWidth;
   vec4 a = getFromColor(uv);
   vec4 b = getToColor(uv);
   float n = noise(q * 6.0) * 0.8 + 0.2 * noise(q * 23.0);

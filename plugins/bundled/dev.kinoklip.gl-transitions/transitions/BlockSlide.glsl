@@ -12,9 +12,9 @@ float hash(vec2 p) {
 }
 
 vec4 transition(vec2 uv) {
-  bool vertical = abs((vec2(u_direction_x, u_direction_y)).y) > abs((vec2(u_direction_x, u_direction_y)).x);
-  bool backward = vertical ? (vec2(u_direction_x, u_direction_y)).y < 0.0 : (vec2(u_direction_x, u_direction_y)).x < 0.0;
-  vec2 g = max(vec2((ivec2(u_grid_x, u_grid_y))), 1.0);
+  bool vertical = abs((vec2(u_directionX, u_directionY)).y) > abs((vec2(u_directionX, u_directionY)).x);
+  bool backward = vertical ? (vec2(u_directionX, u_directionY)).y < 0.0 : (vec2(u_directionX, u_directionY)).x < 0.0;
+  vec2 g = max(vec2((ivec2(u_gridX, u_gridY))), 1.0);
   // a: position along the motion, toward which the blocks slide, b: across it
   float a = vertical ? uv.y : uv.x;
   float b = vertical ? uv.x : uv.y;

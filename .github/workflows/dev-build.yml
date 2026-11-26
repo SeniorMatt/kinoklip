@@ -172,6 +172,8 @@ jobs:
           # icon names of Debian's KF6 differ, title pixels and text widths differ, still-image backend order differs).
           SKIP='^(test_theme|test_translations|test_formats|test_titlelayers|test_textfit)$'
           QT_QPA_PLATFORM=offscreen ctest --test-dir "$KK_BUILD_DIR" $SEL -E "$SKIP" -j2 --output-on-failure
+          # what the pack tests found (the numbers of the real plugin packs)
+          QT_QPA_PLATFORM=offscreen ctest --test-dir "$KK_BUILD_DIR" -R '^(test_ofx|test_pluginrender)$' -V | grep -E "openfx-misc:|G.MIC-OFX|gl-transitions rendered|SKIP" || true
 
       - uses: actions/upload-artifact@v4
         if: ${{ always() }}

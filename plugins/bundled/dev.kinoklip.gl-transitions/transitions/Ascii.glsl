@@ -71,7 +71,7 @@ vec4 cellColor(vec2 center, vec2 dims, bool incoming) {
 
 vec4 transition(vec2 uv) {
   float p = progress;
-  float h = u_cell_size;
+  float h = u_cellSize;
   vec2 fp = (uv - 0.5) * vec2(ratio, 1.0);
   vec2 dims = vec2(ASPECT * h, h);
   vec2 cell = floor(fp / dims);

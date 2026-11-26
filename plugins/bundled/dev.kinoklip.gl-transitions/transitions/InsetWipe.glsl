@@ -14,14 +14,14 @@ vec4 transition(vec2 uv) {
   vec4 a = getFromColor(uv);
   vec4 b = getToColor(uv);
 
-  vec2 an = clamp((vec2(u_anchor_x, u_anchor_y)), 0.0, 1.0);
+  vec2 an = clamp((vec2(u_anchorX, u_anchorY)), 0.0, 1.0);
   vec2 sq = vec2(ratio, 1.0);
   // the rectangle keeps the proportions that make it reach every far side of the frame
   // at once; measured in square pixels so its edge and border have an even width
   vec2 ext = max(an, 1.0 - an) * sq;
   vec2 d = abs(uv - an) * sq;
   float s = max(u_smoothness, AA);
-  float bw = max(u_border_width, 0.0);
+  float bw = max(u_borderWidth, 0.0);
 
   // eased growth, from a rectangle whose border is not yet in the frame to one whose
   // soft edge has left it on every side
@@ -36,7 +36,7 @@ vec4 transition(vec2 uv) {
   if (bw > 0.0) {
     // laid over the image outside the rectangle, so a translucent border tints it
     float m = 1.0 - smoothstep(bw - s, bw + s, e);
-    c = premultiplied(u_border_color) * m + c * (1.0 - u_border_color.a * m);
+    c = premultiplied(u_borderColor) * m + c * (1.0 - u_borderColor.a * m);
   }
   c = mix(c, premultiplied(inside), 1.0 - smoothstep(-s, s, e));
   return c.a > 0.0 ? vec4(c.rgb / c.a, c.a) : vec4(0.0);

@@ -50,7 +50,7 @@ vec4 transition (vec2 uv) {
   vec4 a = getFromColor(uv);
   vec4 b = getToColor(uv);
   vec2 asp = vec2(ratio, 1.0);
-  vec2 c = (vec2(u_center_x, u_center_y)) * asp;
+  vec2 c = (vec2(u_centerX, u_centerY)) * asp;
   float sm = max(u_smoothness, 0.0005);
 
   // The keyhole grows around a point of its head, at the center. It covers the frame (grown by a

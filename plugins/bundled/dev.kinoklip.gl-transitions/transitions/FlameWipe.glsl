@@ -50,7 +50,7 @@ float climbing(float s, float size) {
 }
 
 vec4 transition(vec2 uv) {
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 1e-5 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(1.0, 0.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 1e-5 ? normalize((vec2(u_directionX, u_directionY))) : vec2(1.0, 0.0);
   vec2 q = (uv - 0.5) * vec2(ratio, 1.0);
   float rise = u_height * dir.y;
   float w = 0.05 + 0.35 * u_height;

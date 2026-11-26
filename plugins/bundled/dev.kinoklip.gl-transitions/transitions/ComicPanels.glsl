@@ -87,13 +87,13 @@ vec4 panelImage(vec2 p, vec2 center, float t) {
   float burst = 1.5 * max(1.0, ratio / 1.8) * smoothstep(0.06, 0.42, t);
   float d = length(v) - burst * (0.62 + 0.38 * spike);
   float w = 1.4 * INK;
-  vec4 c = mix(getToColor(uv), u_border_color, smoothstep(-w - EDGE, -w + EDGE, d));
+  vec4 c = mix(getToColor(uv), u_borderColor, smoothstep(-w - EDGE, -w + EDGE, d));
   return mix(c, getFromColor(uv), smoothstep(-EDGE, EDGE, d));
 }
 
 // the panel drawn over color: its gutter edge at g from its edges, its ink border inside it
 vec4 drawPanel(vec4 color, vec4 img, float d, float g, float ink, float fade) {
-  vec4 c = mix(u_border_color, img, mix(1.0, smoothstep(g + ink - EDGE, g + ink + EDGE, d), fade));
+  vec4 c = mix(u_borderColor, img, mix(1.0, smoothstep(g + ink - EDGE, g + ink + EDGE, d), fade));
   return mix(color, c, mix(1.0, smoothstep(g - EDGE, g + EDGE, d), fade));
 }
 
@@ -118,7 +118,7 @@ vec4 transition(vec2 uv) {
   float first = r == 0.0 ? 0.0 : (r == 1.0 ? n0 : n0 + n1);
   float t = panelTime(first + c, total);
 
-  vec4 color = u_gutter_color;
+  vec4 color = u_gutterColor;
   if (t <= 0.0 || t >= 1.0) {
     color = drawPanel(color, panelImage(p, panelCenter(r, c, n), t), panelDist(r, c, n, p), g, ink, fade);
   }

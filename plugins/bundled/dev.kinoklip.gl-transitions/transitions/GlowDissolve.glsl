@@ -36,9 +36,9 @@ vec4 transition(vec2 uv) {
   if (show < 0.001) {
     outColor = to;
   } else {
-    float factor = 1.0 - smoothstep(0.0, u_u_line_width, show);
-    vec3 burnColor = mix(u_u_spread_clr.rgb, u_u_hot_clr.rgb, factor);
-    burnColor = pow(burnColor, vec3(u_u_pow)) * u_u_intensity;
+    float factor = 1.0 - smoothstep(0.0, u_uLineWidth, show);
+    vec3 burnColor = mix(u_uSpreadClr.rgb, u_uHotClr.rgb, factor);
+    burnColor = pow(burnColor, vec3(u_uPow)) * u_uIntensity;
     vec3 finalRGB = mix(from.rgb, burnColor, factor * step(0.0001, progress));
     outColor = vec4(finalRGB, from.a); // straight alpha, like the images
   }

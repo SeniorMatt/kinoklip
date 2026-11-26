@@ -36,10 +36,10 @@ vec4 transition (vec2 uv) {
   vec4 a = getFromColor(uv);
   vec4 b = getToColor(uv);
   vec2 asp = vec2(ratio, 1.0);
-  vec2 c = (vec2(u_center_x, u_center_y)) * asp;
+  vec2 c = (vec2(u_centerX, u_centerY)) * asp;
   // Scale at which the heart covers the whole frame: the corners, plus the point of the top edge
   // in line with the notch (the only concave part of the heart)
-  float cx = clamp((vec2(u_center_x, u_center_y)).x, 0.0, 1.0) * ratio;
+  float cx = clamp((vec2(u_centerX, u_centerY)).x, 0.0, 1.0) * ratio;
   float full = max(
     max(max(heartScale(vec2(0.0, 0.0) - c), heartScale(vec2(ratio, 0.0) - c)),
         max(heartScale(vec2(0.0, 1.0) - c), heartScale(vec2(ratio, 1.0) - c))),
@@ -61,5 +61,5 @@ vec4 transition (vec2 uv) {
   vec4 col = mix(a, b, m);
   // Soft light just outside the edge, faded in and out with the transition (adds no alpha)
   float light = exp(-max(d, 0.0) / (0.008 + sm)) * (1.0 - m) * u_glow * min(1.0, 4.0 * env);
-  return col + vec4(u_glow_color.rgb * light, 0.0);
+  return col + vec4(u_glowColor.rgb * light, 0.0);
 }

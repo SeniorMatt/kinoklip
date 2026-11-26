@@ -99,9 +99,9 @@ float blockMask(vec2 uv, float f) {
 }
 
 vec4 transition(vec2 uv) {
-  float f = floor(progress * u_frame_rate);
+  float f = floor(progress * u_frameRate);
   // the 24-step tables are read in step with the frames, whatever frameRate is
-  float step24 = f * 24.0 / max(u_frame_rate, 1.0);
+  float step24 = f * 24.0 / max(u_frameRate, 1.0);
   float reveal = frameReveal(step24);
   float glitch = frameGlitch(step24) * (1.0 - smoothstep(0.96, 1.0, progress));
 
@@ -117,14 +117,14 @@ vec4 transition(vec2 uv) {
   float block = blockMask(uv, f);
   float localReveal = sat(
     reveal +
-    (block - 0.5) * u_block_amount * glitch +
+    (block - 0.5) * u_blockAmount * glitch +
     (hash12(vec2(f, floor(uv.y * 9.0))) - 0.5) * 0.18 * glitch
   );
 
   localReveal = smoothstep(0.22, 0.78, localReveal);
 
-  vec4 oldClip = chromaFrom(fromUv, u_rgb_offset * glitch);
-  vec4 newClip = chromaTo(toUv, u_rgb_offset * glitch);
+  vec4 oldClip = chromaFrom(fromUv, u_rgbOffset * glitch);
+  vec4 newClip = chromaTo(toUv, u_rgbOffset * glitch);
 
   vec4 color = mix(oldClip, newClip, localReveal);
 
@@ -134,14 +134,14 @@ vec4 transition(vec2 uv) {
   vec3 redGhost = oldClip.rgb * vec3(1.34, 0.42, 0.38);
   vec3 cyanGhost = newClip.rgb * vec3(0.48, 1.12, 1.24);
 
-  color.rgb = mix(color.rgb, redGhost, leftWash * u_red_cyan * 0.42);
-  color.rgb = mix(color.rgb, cyanGhost, cyanWash * u_red_cyan * 0.30);
+  color.rgb = mix(color.rgb, redGhost, leftWash * u_redCyan * 0.42);
+  color.rgb = mix(color.rgb, cyanGhost, cyanWash * u_redCyan * 0.30);
 
   // Keeps the old circular "drop zone" visible as a translucent flash,
   // especially after the first full new-frame hit.
   float oldReturn = glitch * (1.0 - smoothstep(0.94, 1.0, reveal));
   oldReturn *= 0.18 + 0.52 * (1.0 - abs(localReveal - 0.5) * 2.0);
-  color.rgb = mix(color.rgb, oldClip.rgb, oldReturn * u_ghost_amount);
+  color.rgb = mix(color.rgb, oldClip.rgb, oldReturn * u_ghostAmount);
 
   float lines = sin((uv.y + f * 0.017) * 1080.0);
   color.rgb += lines * u_scanline * glitch;

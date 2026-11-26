@@ -44,7 +44,7 @@ float glyph(vec2 cell, float t, vec2 local) {
 }
 
 vec4 transition(vec2 uv) {
-  float h = max(u_cell_size, 0.005);
+  float h = max(u_cellSize, 0.005);
   vec2 dims = vec2(0.75 * h, h);
   vec2 fp = vec2(uv.x * ratio, 1.0 - uv.y);
   // (shifted by odd fractions of a cell, so that pixel centers don't fall on its lines at usual sizes)

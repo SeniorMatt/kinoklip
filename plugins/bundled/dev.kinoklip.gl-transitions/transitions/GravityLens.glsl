@@ -26,15 +26,15 @@ vec4 transition(vec2 uv) {
   float k = u2 * (0.6 + 0.4 * u2);
 
   vec2 aspect = vec2(ratio, 1.0);
-  vec2 far = max((vec2(u_center_x, u_center_y)), 1.0 - (vec2(u_center_x, u_center_y))) * aspect;
+  vec2 far = max((vec2(u_centerX, u_centerY)), 1.0 - (vec2(u_centerX, u_centerY))) * aspect;
   float rh = length(far) * (1.0 + OVERSHOOT) * k;
   // radius where the light coming from right behind the disk shows up as a ring
   float re = rh * (1.0 + max(u_strength, 0.0));
 
-  vec2 d = (uv - (vec2(u_center_x, u_center_y))) * aspect;
+  vec2 d = (uv - (vec2(u_centerX, u_centerY))) * aspect;
   float r = max(length(d), 1e-5);
   // a point mass deflects the light by an angle falling off as 1/r
-  vec2 q = mirrored((vec2(u_center_x, u_center_y)) + d * (1.0 - re * re / (r * r)) / aspect);
+  vec2 q = mirrored((vec2(u_centerX, u_centerY)) + d * (1.0 - re * re / (r * r)) / aspect);
   vec4 c = swallowing ? getFromColor(q) : getToColor(q);
   // the shading fades in with the disk, so it is exactly 0 at both ends
   float amount = smoothstep(0.0, 0.04, rh);

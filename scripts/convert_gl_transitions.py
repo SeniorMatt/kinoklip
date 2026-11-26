@@ -32,6 +32,12 @@ def words(name):
     return s.strip().title() if s.islower() else s.strip()[:1].upper() + s.strip()[1:]
 
 
+def camel(name):
+    """A parameter key: letters and digits only (the plugin format), the uniform's own name."""
+    parts = [x for x in re.split(r"[^A-Za-z0-9]+", name) if x]
+    return parts[0] + "".join(x[:1].upper() + x[1:] for x in parts[1:])
+
+
 def snake(name):
     s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name)
     s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", "_", s)
@@ -100,7 +106,7 @@ def convert(path):
         if default is None or not nums(default) and typ != "bool":
             raise ValueError("no default for " + name)
         label_src = pending.get("desc", "")
-        key = snake(name)
+        key = camel(name)
         base = {"label": words(name)}
         if label_src:
             base["description"] = short(label_src)
@@ -141,11 +147,11 @@ def convert(path):
                 dv = (dv * n)[:n]
             comps = []
             for i, c in enumerate("xyzw"[:n]):
-                p = number(f"{key}_{c}", f"{base['label']} {c.upper()}", dv[i], typ == "ivec2")
+                p = number(f"{key}{c.upper()}", f"{base['label']} {c.upper()}", dv[i], typ == "ivec2")
                 if label_src:
                     p["description"] = base["description"]
                 params.append(p)
-                comps.append(f"u_{key}_{c}")
+                comps.append(f"u_{key}{c.upper()}")
             if typ == "ivec2":
                 subs[name] = "ivec2(%s)" % ", ".join(comps)
             else:
@@ -199,21 +205,33 @@ def main():
             continue
         (dest / item["file"]).write_text(text, encoding="utf-8")
         items.append(item)
-    manifest = {
-        "id": PLUGIN_ID,
-        "name": "GL Transitions",
-        "version": "1.0.0",
-        "author": "gl-transitions contributors (converted for Kinoklip)",
-        "license": "MIT",
-        "description": "The MIT-licensed transitions of gl-transitions (gl-transitions.com) as Kinoklip transition plugins, "
-                       "with their uniforms as parameters.",
-        "api": 1,
-        "transitions": items,
-    }
-    (dest / "plugin.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     lic = (root / "LICENSE").read_text(encoding="utf-8")
-    (dest / "LICENSE").write_text(lic, encoding="utf-8")
-    print(f"{len(items)} transitions written to {dest}")
+    per = (len(items) + 1) // 2  # the plugin format allows 200 transitions in one plugin
+    parts = [items[:per], items[per:]]
+    for n, part in enumerate(parts, 1):
+        pid = PLUGIN_ID if n == 1 else f"{PLUGIN_ID}-{n}"
+        folder = dest if n == 1 else dest.parent / pid
+        (folder / "transitions").mkdir(parents=True, exist_ok=True)
+        if n > 1:
+            for old in (folder / "transitions").glob("*.glsl"):
+                old.unlink()
+            for item in part:
+                (folder / item["file"]).write_text((dest / item["file"]).read_text(encoding="utf-8"), encoding="utf-8")
+                (dest / item["file"]).unlink()
+        manifest = {
+            "id": pid,
+            "name": f"GL Transitions ({n} of {len(parts)})",
+            "version": "1.0.0",
+            "author": "gl-transitions contributors (converted for Kinoklip)",
+            "license": "MIT",
+            "description": "The MIT-licensed transitions of gl-transitions (gl-transitions.com) as Kinoklip transition plugins, "
+                           f"with their uniforms as parameters ({part[0]['name']} to {part[-1]['name']}).",
+            "api": 1,
+            "transitions": part,
+        }
+        (folder / "plugin.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        (folder / "LICENSE").write_text(lic, encoding="utf-8")
+    print(f"{len(items)} transitions written to {dest} and {dest.parent / (PLUGIN_ID + '-2')}")
     print("dropped:", *dropped, sep="\n  ")
 
 

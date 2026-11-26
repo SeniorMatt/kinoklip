@@ -20,7 +20,7 @@ float cover(float x, float back, float front) {
 }
 
 vec4 transition(vec2 uv) {
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 0.0 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(1.0, 0.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 0.0 ? normalize((vec2(u_directionX, u_directionY))) : vec2(1.0, 0.0);
   vec2 p = (uv - 0.5) * vec2(ratio, 1.0);
   float k = clamp(u_skew, -1.0, 1.0);
   vec2 a = (dir + k * vec2(-dir.y, dir.x)) / sqrt(1.0 + k * k);

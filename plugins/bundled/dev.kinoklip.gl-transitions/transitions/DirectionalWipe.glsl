@@ -7,7 +7,7 @@
 const vec2 center = vec2(0.5, 0.5);
  
 vec4 transition (vec2 uv) {
-  vec2 v = normalize((vec2(u_direction_x, u_direction_y)));
+  vec2 v = normalize((vec2(u_directionX, u_directionY)));
   v /= abs(v.x)+abs(v.y);
   float d = v.x * center.x + v.y * center.y;
   float m =

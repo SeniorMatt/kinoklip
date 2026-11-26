@@ -37,8 +37,8 @@ vec4 echoStep(vec2 uv, float s, vec2 shift, float j, float t0, float lag, float 
 }
 
 vec4 transition(vec2 uv) {
-  float dl = length((vec2(u_direction_x, u_direction_y)));
-  vec2 d = dl > 1e-6 ? (vec2(u_direction_x, u_direction_y)) / dl : vec2(1.0, 0.0);
+  float dl = length((vec2(u_directionX, u_directionY)));
+  vec2 d = dl > 1e-6 ? (vec2(u_directionX, u_directionY)) / dl : vec2(1.0, 0.0);
   // s: position along the slide, from 0 (trailing side) to 1 (leading side)
   float ext = abs(d.x) + abs(d.y);
   vec2 shift = d * ext;

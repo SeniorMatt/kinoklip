@@ -72,7 +72,7 @@ vec4 transition(vec2 uv) {
     dur *= DECAY;
   }
   vec4 c = mix(getFromColor(uv) * vec4(vec3(1.0 - 0.4 * shade), 1.0), getToColor(uv), mask);
-  float w = ink * u_lines * u_line_color.a * 4.0 * s * (1.0 - s);
+  float w = ink * u_lines * u_lineColor.a * 4.0 * s * (1.0 - s);
   float alpha = mix(c.a, 1.0, w);
-  return vec4(mix(c.rgb, u_line_color.rgb, w / max(alpha, 1e-6)), alpha);
+  return vec4(mix(c.rgb, u_lineColor.rgb, w / max(alpha, 1e-6)), alpha);
 }

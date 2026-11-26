@@ -69,7 +69,7 @@ float numeral(vec2 p, float n) {
 // px is the size of one frame height; the tone of the film alternates between numbers
 vec3 leaderFrame(vec2 q, float n, float px) {
   float tone = mod(n, 2.0) < 0.5 ? 0.86 : 1.0;
-  vec3 c = u_leader_color.rgb * tone;
+  vec3 c = u_leaderColor.rgb * tone;
   float r = length(q);
   float aa = AA * px;
   float ink = 1.0 - smoothstep(0.003 - aa, 0.003 + aa, abs(r - 0.31));
@@ -80,7 +80,7 @@ vec3 leaderFrame(vec2 q, float n, float px) {
   float disc = 1.0 - smoothstep(0.31 - 0.003 - aa, 0.31 - 0.003, r);
   ink = max(ink * (1.0 - disc), num);
   c *= 1.0 + 0.06 * disc;
-  return mix(c, u_ink_color.rgb, ink * u_ink_color.a);
+  return mix(c, u_inkColor.rgb, ink * u_inkColor.a);
 }
 
 vec4 transition(vec2 uv) {
@@ -128,13 +128,13 @@ vec4 transition(vec2 uv) {
   float aheadAlpha = from.a;
   if (behind < 1.0 && aheadLeader) {
     aheadColor = leaderFrame(q, n - ahead + 1.0, px) * (1.0 - 0.18 * exp(-(f + 1.0 - ang) * TAU * 2.5) * nearCenter);
-    aheadAlpha = u_leader_color.a;
+    aheadAlpha = u_leaderColor.a;
   }
   vec3 sweptColor = to.rgb;
   float sweptAlpha = to.a;
   if (behind > 0.0 && sweptLeader) {
     sweptColor = leaderFrame(q, n - swept + 1.0, px) * (1.0 - 0.18 * exp(-max(f - ang, 0.0) * TAU * 2.5) * nearCenter);
-    sweptAlpha = u_leader_color.a;
+    sweptAlpha = u_leaderColor.a;
   }
   vec3 c = mix(aheadColor, sweptColor, behind);
   float a = mix(aheadAlpha, sweptAlpha, behind);
@@ -169,7 +169,7 @@ vec4 transition(vec2 uv) {
   float hand = (1.0 - smoothstep(handW - AA, handW + AA, abs(across))) * step(0.0, along);
   float shadow = exp(-max(across, 0.0) / (0.012 * s)) * step(0.0, across) * step(0.0, along) * 0.35;
   c *= 1.0 - shadow * handOn;
-  c = mix(c, u_ink_color.rgb, hand * handOn * u_ink_color.a);
-  a = mix(a, max(a, u_ink_color.a), hand * handOn);
+  c = mix(c, u_inkColor.rgb, hand * handOn * u_inkColor.a);
+  a = mix(a, max(a, u_inkColor.a), hand * handOn);
   return vec4(clamp(c, 0.0, 1.0), a);
 }

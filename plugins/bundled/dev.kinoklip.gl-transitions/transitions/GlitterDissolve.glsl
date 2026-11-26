@@ -98,7 +98,7 @@ vec4 transition(vec2 uv) {
 
   // what lies under the flipping tiles: the image while the own tile rests, else the backing
   float fHome = flipOf(idOf(home));
-  vec4 under = fHome <= 0.0 ? getFromColor(uv) : fHome >= 1.0 ? getToColor(uv) : u_back_color;
+  vec4 under = fHome <= 0.0 ? getFromColor(uv) : fHome >= 1.0 ? getToColor(uv) : u_backColor;
 
   // the two topmost flipping tiles at the pixel, among its own and the lifted neighbours
   // reaching over it: the higher a tile is in its flip, the closer it is to the viewer

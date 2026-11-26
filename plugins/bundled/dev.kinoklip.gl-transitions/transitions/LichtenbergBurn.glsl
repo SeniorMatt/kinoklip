@@ -53,7 +53,7 @@ float tree(float a, float r, float sc) {
 
 vec4 transition(vec2 uv) {
   float p = progress, R = ratio;
-  vec2 c = vec2((vec2(u_origin_x, u_origin_y)).x * R, (vec2(u_origin_x, u_origin_y)).y);
+  vec2 c = vec2((vec2(u_originX, u_originY)).x * R, (vec2(u_originX, u_originY)).y);
   vec2 P = vec2(uv.x * R, uv.y) - c;
   // the offset keeps atan defined on the origin's own pixel
   float r = length(P), a = atan(P.y, P.x + 1e-6) + PI;

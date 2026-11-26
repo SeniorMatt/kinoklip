@@ -25,7 +25,7 @@ vec2 mirror(vec2 v) {
 vec4 transition(vec2 uv) {
   float t = progress;
 
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 0.0 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(0.0, -1.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 0.0 ? normalize((vec2(u_directionX, u_directionY))) : vec2(0.0, -1.0);
   // across the front, so that (side, -dir) keeps the orientation of the frame
   vec2 side = vec2(-dir.y, dir.x);
   vec2 aspect = vec2(ratio, 1.0);

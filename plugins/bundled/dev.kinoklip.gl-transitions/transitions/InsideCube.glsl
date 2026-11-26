@@ -26,8 +26,8 @@ vec4 wallColor(vec2 l, bool incoming, bool vertical, float s) {
 }
 
 vec4 transition(vec2 uv) {
-  bool vertical = abs((vec2(u_direction_x, u_direction_y)).y) > abs((vec2(u_direction_x, u_direction_y)).x);
-  float s = (vertical ? (vec2(u_direction_x, u_direction_y)).y : (vec2(u_direction_x, u_direction_y)).x) < 0.0 ? -1.0 : 1.0;
+  bool vertical = abs((vec2(u_directionX, u_directionY)).y) > abs((vec2(u_directionX, u_directionY)).x);
+  float s = (vertical ? (vec2(u_directionX, u_directionY)).y : (vec2(u_directionX, u_directionY)).x) < 0.0 ? -1.0 : 1.0;
   // q.x: along the turn, toward the incoming wall; q.y: across; in frame heights
   vec2 p = (uv - 0.5) * vec2(ratio, 1.0);
   vec2 q = vertical ? p.yx : p;

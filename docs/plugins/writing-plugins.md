@@ -320,10 +320,10 @@ Transitions have no `uTime` or `uFrame`. The result is composited over the track
 built-in transition. Worked example: `plugins/examples/dev.kinoklip.circle-reveal`; a port with a
 colour parameter: `dev.kinoklip.dip-to-color`.
 
-Kinoklip bundles the MIT-licensed gl-transitions as `plugins/bundled/dev.kinoklip.gl-transitions`
+Kinoklip bundles the MIT-licensed gl-transitions as `plugins/bundled/dev.kinoklip.gl-transitions` and `-2`
 (made by `scripts/convert_gl_transitions.py`, which also shows the conversion rules for your own
 files: `uniform` lines removed, each use of `x` becomes `u_x`, a `vec2` / `vec3` / `ivec2` becomes one
-number parameter per component `x_x`, `x_y`, a colour `vec3` / `vec4` becomes a colour parameter).
+number parameter per component `xX`, `xY`, a colour `vec3` / `vec4` becomes a colour parameter).
 
 To use a gl-transitions shader: put its code in the `.glsl` file, delete its `uniform`
 declarations and rename each uniform `x` to `u_x`, declare it in `params` with the default from

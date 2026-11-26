@@ -51,14 +51,14 @@ float boxShadow(vec2 p, vec2 halfSize, float blur) {
 }
 
 vec4 transition(vec2 uv) {
-  vec2 grid = max(vec2((ivec2(u_size_x, u_size_y))), 1.0);
+  vec2 grid = max(vec2((ivec2(u_sizeX, u_sizeY))), 1.0);
   vec2 frame = vec2(ratio, 1.0);
   vec2 tileSize = frame / grid;
   vec2 cell = clamp(floor(uv * grid), vec2(0.0), grid - 1.0);
   vec2 pos = uv * frame;
   float gapOpen = gapAmount();
   float minSide = min(tileSize.x, tileSize.y);
-  float gap = clamp(u_divider_width, 0.0, 0.4) * minSide * gapOpen;
+  float gap = clamp(u_dividerWidth, 0.0, 0.4) * minSide * gapOpen;
   vec2 halfTile = 0.5 * tileSize - gap;
   float eye = EYE * max(tileSize.x, tileSize.y);
   // the flips start while the gaps finish opening, and end while they start closing

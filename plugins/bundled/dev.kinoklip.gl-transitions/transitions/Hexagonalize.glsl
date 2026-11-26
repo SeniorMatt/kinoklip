@@ -64,7 +64,7 @@ vec4 transition (vec2 uv) {
   float dist = 2.0 * min(progress, 1.0 - progress);
   dist = u_steps > 0 ? ceil(dist * float(u_steps)) / float(u_steps) : dist;
   
-  float size = (sqrt(3.0) / 3.0) * dist / u_horizontal_hexagons;
+  float size = (sqrt(3.0) / 3.0) * dist / u_horizontalHexagons;
   
   vec2 point = dist > 0.0 ? pointFromHexagon(hexagonFromPoint(uv, size), size) : uv;
 

@@ -64,7 +64,7 @@ vec4 kneaded(vec2 uv, int n, float s, bool incoming, float g) {
 
   vec4 bottom = img(unknead(vec2(0.5 * l.x, l.y), n), incoming);
   bottom.rgb *= creases(l.y, rows, amount) * (1.0 - 0.7 * u_shadow * lift * (1.0 - smoothstep(0.0, xs.x, hiL.x - uv.x)));
-  vec4 c = mix(u_back_color, bottom, box(uv, vec2(-1.0), hiL + soft, soft));
+  vec4 c = mix(u_backColor, bottom, box(uv, vec2(-1.0), hiL + soft, soft));
 
   vec2 off = vec2(0.02 / ratio, -0.03) * lift;
   float sh = 1.0 - smoothstep(0.0, 0.05, -min(ratio * min(uv.x - off.x - loR.x, 1.0 - uv.x + off.x), min(uv.y - off.y - loR.y, 1.0 - uv.y + off.y)));

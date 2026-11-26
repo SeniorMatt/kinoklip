@@ -19,9 +19,9 @@ vec4 transition(vec2 uv) {
   vec4 texTo = getToColor(p + inv*disp);
   vec4 fromCenter = getFromColor(p + progress*disp);
   vec4 texFrom = vec4(
-    getFromColor(p + progress*disp*(1.0 - u_color_separation)).r,
+    getFromColor(p + progress*disp*(1.0 - u_colorSeparation)).r,
     fromCenter.g,
-    getFromColor(p + progress*disp*(1.0 + u_color_separation)).b,
+    getFromColor(p + progress*disp*(1.0 + u_colorSeparation)).b,
     fromCenter.a);
   return texTo*progress + texFrom*inv;
 }

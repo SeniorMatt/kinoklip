@@ -53,7 +53,7 @@ vec4 transition(vec2 uv) {
   vec3 n = normalize(vec3(-g * 4.0 * relief, 1.0));
   // the light swings over the transition, so the glints slide along the outlines
   float a = 2.0 * (progress - 0.4);
-  vec2 ld = mat2(cos(a), sin(a), -sin(a), cos(a)) * (vec2(u_light_x, u_light_y));
+  vec2 ld = mat2(cos(a), sin(a), -sin(a), cos(a)) * (vec2(u_lightX, u_lightY));
   vec3 lt = normalize(vec3(ld, 0.9));
   float diff = dot(n, lt) - lt.z;
   float spec = pow(max(dot(reflect(-lt, n), vec3(0.0, 0.0, 1.0)), 0.0), 40.0);

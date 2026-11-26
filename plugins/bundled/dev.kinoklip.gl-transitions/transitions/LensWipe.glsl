@@ -19,7 +19,7 @@ vec4 transition(vec2 uv) {
   vec2 aspect = vec2(ratio, 1.0);
   float sh = clamp(u_shading, 0.0, 1.0);
 
-  vec2 far = max((vec2(u_center_x, u_center_y)), 1.0 - (vec2(u_center_x, u_center_y))) * aspect;
+  vec2 far = max((vec2(u_centerX, u_centerY)), 1.0 - (vec2(u_centerX, u_centerY))) * aspect;
   float full = length(far) / (1.0 - BEVEL) + 2.0 * AA;
   float t = clamp(p / OPEN, 0.0, 1.0);
   float radius = full * t * (0.5 + t * (2.0 - 1.5 * t));
@@ -27,7 +27,7 @@ vec4 transition(vec2 uv) {
   // the magnification relaxes while the lens finishes growing: exactly 0 at the end
   float k = clamp(u_strength, 0.0, 0.8) * (1.0 - smoothstep(0.35, 1.0, p));
 
-  vec2 d = (uv - (vec2(u_center_x, u_center_y))) * aspect;
+  vec2 d = (uv - (vec2(u_centerX, u_centerY))) * aspect;
   float r = length(d);
 
   vec4 a = vec4(0.0);
@@ -43,7 +43,7 @@ vec4 transition(vec2 uv) {
   float f = 1.0 - k * (1.0 - s * s);
   vec2 n = r > 0.0 ? d / r : vec2(0.0);
   vec2 ca = n * (0.014 * k * s * s) / aspect;
-  vec2 q = (vec2(u_center_x, u_center_y)) + d * f / aspect;
+  vec2 q = (vec2(u_centerX, u_centerY)) + d * f / aspect;
   // each channel keeps the alpha of the tap it comes from
   vec4 cr = getToColor(mirror(q + ca));
   vec4 cg = getToColor(mirror(q));

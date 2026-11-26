@@ -39,12 +39,12 @@ vec4 pleated(float f, float c, float len, float b, float bLen, bool incoming, bo
   float light = mix(panelLight(c, s, -facing), panelLight(c, s, facing), k);
   float valley = 1.0 - tri;
   light *= 1.0 - 0.4 * u_shading * s * valley * valley;
-  return mix(u_back_color, vec4(img.rgb * light, img.a), cover);
+  return mix(u_backColor, vec4(img.rgb * light, img.a), cover);
 }
 
 vec4 transition(vec2 uv) {
-  bool vertical = abs((vec2(u_direction_x, u_direction_y)).y) > abs((vec2(u_direction_x, u_direction_y)).x);
-  bool positive = vertical ? (vec2(u_direction_x, u_direction_y)).y > 0.0 : (vec2(u_direction_x, u_direction_y)).x > 0.0;
+  bool vertical = abs((vec2(u_directionX, u_directionY)).y) > abs((vec2(u_directionX, u_directionY)).x);
+  bool positive = vertical ? (vec2(u_directionX, u_directionY)).y > 0.0 : (vec2(u_directionX, u_directionY)).x > 0.0;
   // a: along the motion, 0 on the side the outgoing image folds up toward; b: across it
   float a = vertical ? uv.y : uv.x;
   if (positive) a = 1.0 - a;

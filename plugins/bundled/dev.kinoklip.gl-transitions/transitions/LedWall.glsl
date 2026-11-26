@@ -33,7 +33,7 @@ vec4 transition(vec2 uv) {
   vec2 local = q - id;
   vec2 side = vec2(local.x < 0.0 ? -1.0 : 1.0, local.y < 0.0 ? -1.0 : 1.0);
 
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 1e-4 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(1.0, 0.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 1e-4 ? normalize((vec2(u_directionX, u_directionY))) : vec2(1.0, 0.0);
   float extent = abs(dir.x) * ratio + abs(dir.y);
 
   vec4 own = vec4(0.0);

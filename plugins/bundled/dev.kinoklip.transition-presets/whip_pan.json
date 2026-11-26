@@ -5,7 +5,7 @@
       "args": {
         "clip": "$right",
         "edge": "head",
-        "type": "plugin:dev.kinoklip.gl-transitions/whip_pan",
+        "type": "plugin:dev.kinoklip.gl-transitions-2/whip_pan",
         "duration": 12
       }
     }

@@ -74,7 +74,7 @@ vec4 transition(vec2 uv) {
   float p = progress;
   vec2 asp = vec2(ratio, 1.0);
   float lean = u_tilt * smoothstep(0.04, 0.55, p);
-  float rs = u_hole_size * min(1.0, 0.35 + 0.65 * ratio) * smoothstep(0.02, 0.4, p) * (1.0 - smoothstep(0.62, 1.0, p));
+  float rs = u_holeSize * min(1.0, 0.35 + 0.65 * ratio) * smoothstep(0.02, 0.4, p) * (1.0 - smoothstep(0.62, 1.0, p));
   float hot = heating();
   float rOut = max(1e-3, 2.3 * pow(1.0 - smoothstep(0.12, 0.92, p), 1.1) - 0.12 * smoothstep(0.6, 0.95, p) + 6.0 * (1.0 - smoothstep(0.0, 0.16, p)));
   float ct = cos(lean);

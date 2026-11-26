@@ -15,7 +15,7 @@ float parabola(float x) {
 
 vec4 transition (vec2 uv) {
   float easedProgress = pow(sin(progress  * PI / 2.), 3.);
-  vec2 p = uv + easedProgress * sign((vec2(u_direction_x, u_direction_y)));
+  vec2 p = uv + easedProgress * sign((vec2(u_directionX, u_directionY)));
   vec2 f = fract(p);
   
   float s = 1. - (1. - (1. / u_scale)) * parabola(progress);

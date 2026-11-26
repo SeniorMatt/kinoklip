@@ -18,6 +18,6 @@ float bayer(vec2 c) {
 }
 
 vec4 transition(vec2 uv) {
-  vec2 cell = floor(uv * vec2(ratio, 1.0) / u_dot_size);
+  vec2 cell = floor(uv * vec2(ratio, 1.0) / u_dotSize);
   return progress < bayer(cell) ? getFromColor(uv) : getToColor(uv);
 }

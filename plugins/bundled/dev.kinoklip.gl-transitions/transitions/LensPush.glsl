@@ -24,8 +24,8 @@ vec4 strip(vec2 q, vec2 d) {
 
 vec4 transition(vec2 uv) {
   // snap to the nearest of the 8 directions: drop a component under tan(22.5deg) of the other
-  vec2 ad = abs((vec2(u_direction_x, u_direction_y)));
-  vec2 d = sign((vec2(u_direction_x, u_direction_y))) * step(0.4142 * max(ad.x, ad.y), ad);
+  vec2 ad = abs((vec2(u_directionX, u_directionY)));
+  vec2 d = sign((vec2(u_directionX, u_directionY))) * step(0.4142 * max(ad.x, ad.y), ad);
   if (dot(d, d) == 0.0) d = vec2(-1.0, 0.0);
   float p = progress;
   // position: smooth start and landing; the motion blur follows the speed (1.875 at the peak)

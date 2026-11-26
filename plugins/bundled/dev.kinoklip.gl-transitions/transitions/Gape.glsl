@@ -16,7 +16,7 @@ float rim(vec2 p, vec2 A) {
 
 vec4 transition(vec2 uv) {
   float t = progress;
-  vec2 c = ((vec2(u_center_x, u_center_y)) - 0.5) * vec2(ratio, 1.0);
+  vec2 c = ((vec2(u_centerX, u_centerY)) - 0.5) * vec2(ratio, 1.0);
   vec2 p = (uv - 0.5) * vec2(ratio, 1.0) - c;
   float open = smoothstep(0.03, 0.55, t);
   // the hole's half height when it just contains the farthest corner, with a margin for the rim

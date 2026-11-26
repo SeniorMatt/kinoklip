@@ -23,7 +23,7 @@ float hash(float n) {
 }
 
 vec2 gridSize() {
-  return clamp(vec2((ivec2(u_grid_x, u_grid_y))), 1.0, 6.0);
+  return clamp(vec2((ivec2(u_gridX, u_gridY))), 1.0, 6.0);
 }
 
 // local time of card j: 0 on the deck, 1 once it lies still in its place
@@ -48,7 +48,7 @@ vec4 transition(vec2 uv) {
   vec2 asp = vec2(ratio, 1.0);
   vec2 size = asp / g;
   vec2 p = uv * asp;
-  vec2 origin = (vec2(u_deck_x, u_deck_y)) * asp;
+  vec2 origin = (vec2(u_deckX, u_deckY)) * asp;
   float darkness = clamp(u_shadow, 0.0, 1.0);
 
   vec2 own = min(floor(uv * g), g - 1.0);

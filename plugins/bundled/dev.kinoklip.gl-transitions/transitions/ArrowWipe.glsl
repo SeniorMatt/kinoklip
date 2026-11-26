@@ -12,7 +12,7 @@ float arrow(vec2 q, float tip, float back, vec2 tipN, vec2 notchN) {
 }
 
 vec4 transition(vec2 uv) {
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 0.0 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(1.0, 0.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 0.0 ? normalize((vec2(u_directionX, u_directionY))) : vec2(1.0, 0.0);
   vec2 across = vec2(-dir.y, dir.x);
   vec2 p = (uv - 0.5) * vec2(ratio, 1.0);
   vec2 q = vec2(dot(p, dir), abs(dot(p, across)));

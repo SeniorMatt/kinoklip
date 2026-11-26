@@ -95,6 +95,6 @@ vec4 transition(vec2 uv) {
   to.rgb *= 1.0 - 0.6 * u_depth * inner * open * (1.0 - dust);
 
   vec4 c = mix(vec4(from.rgb * from.a, from.a), vec4(to.rgb * to.a, to.a), max(m, dust));
-  c = mix(c, vec4(u_line_color.rgb, 1.0), u_line_color.a * max(line, rim * (1.0 - dust)));
+  c = mix(c, vec4(u_lineColor.rgb, 1.0), u_lineColor.a * max(line, rim * (1.0 - dust)));
   return c.a > 0.0 ? vec4(c.rgb / c.a, c.a) : vec4(0.0);
 }

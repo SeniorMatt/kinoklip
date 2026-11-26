@@ -4,7 +4,7 @@
 // Tags: slide, push, directional
 
 vec4 transition (vec2 uv) {
-  vec2 p = uv + progress * sign((vec2(u_direction_x, u_direction_y)));
+  vec2 p = uv + progress * sign((vec2(u_directionX, u_directionY)));
   vec2 f = fract(p);
   return mix(
     getToColor(f),

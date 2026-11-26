@@ -48,7 +48,7 @@ vec4 transition(vec2 uv) {
   vec4 toColor = getToColor(uv);
   if (amount <= 0.0) return m < 0.5 ? fromColor : toColor;
 
-  vec2 origin = (vec2(u_center_x, u_center_y)) + vec2(u_drift * (p - 0.5), 0.0);
+  vec2 origin = (vec2(u_centerX, u_centerY)) + vec2(u_drift * (p - 0.5), 0.0);
   float len = u_reach * amount;
   float knee = mix(u_threshold, 0.75 * u_threshold, peak);
   // a small shift of the taps, under their spacing, blends them into smooth shafts;

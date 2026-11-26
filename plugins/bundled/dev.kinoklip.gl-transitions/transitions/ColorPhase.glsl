@@ -9,5 +9,5 @@
 vec4 transition (vec2 uv) {
   vec4 a = getFromColor(uv);
   vec4 b = getToColor(uv);
-  return mix(a, b, smoothstep((vec4(u_from_step_x, u_from_step_y, u_from_step_z, u_from_step_w)), (vec4(u_to_step_x, u_to_step_y, u_to_step_z, u_to_step_w)), vec4(progress)));
+  return mix(a, b, smoothstep((vec4(u_fromStepX, u_fromStepY, u_fromStepZ, u_fromStepW)), (vec4(u_toStepX, u_toStepY, u_toStepZ, u_toStepW)), vec4(progress)));
 }

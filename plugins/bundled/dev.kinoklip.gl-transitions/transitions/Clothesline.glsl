@@ -107,12 +107,12 @@ vec4 drawPins(vec4 col, vec3 h, float aa, float vis) {
   float cov = vis * clamp(0.5 - d / (h.z * aa), 0.0, 1.0);
   if (cov > 0.0) {
     float k = clamp((abs(lp.x) - PIN_X * ratio) / PIN.x, -1.0, 1.0);
-    vec3 c = u_pin_color.rgb * (0.62 + 0.45 * sqrt(1.0 - k * k));
+    vec3 c = u_pinColor.rgb * (0.62 + 0.45 * sqrt(1.0 - k * k));
     float y = lp.y - PIN_Y;
     float spring = 1.0 - smoothstep(0.004, 0.007, abs(y + 0.02));
     c = mix(c, vec3(0.3, 0.31, 0.33) * (0.6 + 0.8 * sqrt(1.0 - k * k)), spring);
     c *= 1.0 - 0.3 * (1.0 - smoothstep(0.002, 0.005, abs(y - 0.012)));
-    vec4 pc = premultiply(vec4(c, u_pin_color.a));
+    vec4 pc = premultiply(vec4(c, u_pinColor.a));
     col = pc * cov + col * (1.0 - pc.a * cov);
   }
   return col;
@@ -171,8 +171,8 @@ vec4 transition(vec2 uv) {
       float k = clamp(ly / ROPE, -1.0, 1.0);
       float lx = o.x + d.x * tl + s * spacing * m;
       float strand = 0.88 + 0.12 * sin((lx + ly * 0.6) * 360.0);
-      vec3 c = u_line_color.rgb * (0.7 + 0.45 * sqrt(1.0 - k * k) + 0.15 * k) * strand;
-      vec4 lcp = premultiply(vec4(c, u_line_color.a));
+      vec3 c = u_lineColor.rgb * (0.7 + 0.45 * sqrt(1.0 - k * k) + 0.15 * k) * strand;
+      vec4 lcp = premultiply(vec4(c, u_lineColor.a));
       col = lcp * lc + col * (1.0 - lcp.a * lc);
     }
     col = drawPins(col, hf, aa, vis);

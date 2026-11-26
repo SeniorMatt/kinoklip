@@ -11,7 +11,7 @@ float ease (float t) {
 }
 
 vec4 transition (vec2 uv) {
-  vec2 dir = length((vec2(u_direction_x, u_direction_y))) > 0.0 ? normalize((vec2(u_direction_x, u_direction_y))) : vec2(0.0, 1.0);
+  vec2 dir = length((vec2(u_directionX, u_directionY))) > 0.0 ? normalize((vec2(u_directionX, u_directionY))) : vec2(0.0, 1.0);
   vec2 p = (uv - 0.5) * vec2(ratio, 1.0);
   float e = 0.5 * (abs(dir.x) * ratio + abs(dir.y));
   float w = 0.5 * (abs(dir.y) * ratio + abs(dir.x));

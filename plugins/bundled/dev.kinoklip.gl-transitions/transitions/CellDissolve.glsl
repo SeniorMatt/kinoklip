@@ -65,8 +65,8 @@ vec4 transition(vec2 uv) {
   float bw = max(u_border, 0.0) * open;
   if (bw > 0.0) {
     float l = 1.0 - smoothstep(0.5 * bw - AA, 0.5 * bw + AA, edge);
-    float ba = u_border_color.a * l * min(1.0, bw / (2.0 * AA));
-    c = vec4(u_border_color.rgb * ba, ba) + c * (1.0 - ba);
+    float ba = u_borderColor.a * l * min(1.0, bw / (2.0 * AA));
+    c = vec4(u_borderColor.rgb * ba, ba) + c * (1.0 - ba);
   }
   return c.a > 0.0 ? vec4(c.rgb / c.a, c.a) : vec4(0.0);
 }

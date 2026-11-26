@@ -88,10 +88,10 @@ vec4 transition(vec2 uv) {
     float r = x - rand(vec2(p.x, 0.1));
     float m;
     if(u_above){
-     m = dist <= r && luminance(getFromColor(p))>u_l_threshold ? 1.0 : (progress*progress*progress);
+     m = dist <= r && luminance(getFromColor(p))>u_lThreshold ? 1.0 : (progress*progress*progress);
     }
     else{
-     m = dist <= r && luminance(getFromColor(p))<u_l_threshold ? 1.0 : (progress*progress*progress);  
+     m = dist <= r && luminance(getFromColor(p))<u_lThreshold ? 1.0 : (progress*progress*progress);  
     }
     return mix(getFromColor(p), getToColor(p), m);    
   }

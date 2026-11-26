@@ -23,10 +23,10 @@ vec4 transition(vec2 uv) {
   vec2 toPlate = vec2(ratio, 1.0) / side;
   vec2 p = (uv - 0.5) * toPlate + 0.5;
 
-  float n = u_mode_x * PI;
-  float m = u_mode_y * PI;
+  float n = u_modeX * PI;
+  float m = u_modeY * PI;
   // equal modes would cancel out to f = 0 everywhere: close modes switch to the sum, a plain grid of lines
-  float c = 1.0 - 2.0 * smoothstep(0.0, 1.0, abs(u_mode_x - u_mode_y));
+  float c = 1.0 - 2.0 * smoothstep(0.0, 1.0, abs(u_modeX - u_modeY));
   vec2 cn = cos(n * p);
   vec2 cm = cos(m * p);
   vec2 sn = sin(n * p);
@@ -38,7 +38,7 @@ vec4 transition(vec2 uv) {
   // sand covers |f| < w; |f| <= 2, so w = 3.2 covers the whole plate with the grainy edge
   float x = clamp(t / 0.55, 0.0, 1.0);
   float gather = x * (1.6 - 0.6 * x);
-  float w = mix(3.2, u_line_width, gather) * (1.0 - smoothstep(0.5, 0.97, t));
+  float w = mix(3.2, u_lineWidth, gather) * (1.0 - smoothstep(0.5, 0.97, t));
   float shake = smoothstep(0.0, 0.08, t) * (1.0 - 0.6 * smoothstep(0.4, 0.75, t));
 
   vec2 gid = floor(uv * vec2(ratio, 1.0) * GRAINS);
@@ -49,7 +49,7 @@ vec4 transition(vec2 uv) {
   // the sand here came from the level f * k: one Newton step along the gradient,
   // softly limited where the plate is nearly flat; k stops growing once the lines have
   // formed, so the two sides of a thinning line do not split apart
-  float k = 3.2 / max(w, u_line_width);
+  float k = 3.2 / max(w, u_lineWidth);
   vec2 d = g / gl2 * (clamp(f * k, -2.0, 2.0) - f);
   d *= smoothstep(0.0, 0.1, t) / (1.0 + length(d) / 0.1);
   vec2 jit = (vec2(r1, r2) - 0.5) * 0.004 * shake * sin(t * 48.0 + r1 * 6.28);
@@ -57,7 +57,7 @@ vec4 transition(vec2 uv) {
 
   // evens out the line width where the plate barely moves, relative to its typical slope
   float gn = sqrt(gl2);
-  float even = mix(1.0, clamp(gn / (2.06 * length(vec2(u_mode_x, u_mode_y))), 0.45, 1.6), gather);
+  float even = mix(1.0, clamp(gn / (2.06 * length(vec2(u_modeX, u_modeY))), 0.45, 1.6), gather);
   float s = abs(f) / max(w * even, 1e-4);
   // the pile -(f / w)^2 lit from the top left, its slope taken relative to the line width
   float lit = dot(min(s, 1.2) * sign(f) * g / gn, vec2(-0.7071, 0.7071)) * 0.3;

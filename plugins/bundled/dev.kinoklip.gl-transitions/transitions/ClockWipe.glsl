@@ -7,7 +7,7 @@
 
 vec4 transition (vec2 uv) {
   
-  float offset = u_starting_angle * PI / 180.0;
+  float offset = u_startingAngle * PI / 180.0;
   float angle = atan(uv.y - 0.5, uv.x - 0.5) + offset;
   float normalizedAngle = (angle + PI) / (2.0 * PI);
   

@@ -76,7 +76,7 @@ vec4 transition(vec2 uv) {
   vec2 anchor = vec2(-0.3 * ratio, -0.9);
   float str = (1.0 - smoothstep(0.0025 * s + 0.0006, 0.0025 * s + 0.002, segDist(q, hub, anchor)))
             * smoothstep(0.15, 0.35, p) * (1.0 - smoothstep(0.5, 0.66, c.y));
-  bg = mix(bg, vec4(u_line_color.rgb, 1.0), str * u_line_color.a);
+  bg = mix(bg, vec4(u_lineColor.rgb, 1.0), str * u_lineColor.a);
 
   vec2 dn = normalize(p1 - hub + vec2(0.0, -0.4 * length(p1 - hub)));
   vec2 pr = vec2(-dn.y, dn.x);

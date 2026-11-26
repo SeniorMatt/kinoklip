@@ -20,7 +20,7 @@ vec2 mirror(vec2 v) {
 vec4 transition(vec2 uv) {
   float a = 1.0 - abs(2.0 * progress - 1.0);
   float amount = a * a * (3.0 - 2.0 * a);
-  vec2 cell = floor(uv * vec2(ratio, 1.0) / max(u_grain_size, 1e-4));
+  vec2 cell = floor(uv * vec2(ratio, 1.0) / max(u_grainSize, 1e-4));
   vec4 h = hash42(cell);
   float angle = 2.0 * PI * (h.x + u_shimmer * (2.0 * h.w - 1.0) * progress);
   float dist = u_radius * amount * 0.5 * (h.y + h.z);
