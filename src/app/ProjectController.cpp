@@ -103,6 +103,10 @@ ProjectController::ProjectController(AppContext& ctx, QWidget* window)
         &ProjectController::compactProject);
     connect(actions.action(QStringLiteral("file.verify_project")), &QAction::triggered, this,
         &ProjectController::verifyProject);
+    connect(actions.action(QStringLiteral("file.export_archive")), &QAction::triggered, this,
+        &ProjectController::exportArchive);
+    connect(actions.action(QStringLiteral("file.restore_archive")), &QAction::triggered, this,
+        &ProjectController::restoreArchive);
     ctx.mediaStore = this;
     updatePackageActions();
 }

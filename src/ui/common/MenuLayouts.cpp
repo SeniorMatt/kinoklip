@@ -91,6 +91,9 @@ Menu fileMenu()
             A("file.compact_project", "Compact…"),
             A("file.verify_project", "Verify Project File"),
             S(),
+            A("file.export_archive", "Export Project Archive…"),
+            A("file.restore_archive", "Restore Project Archive…"),
+            S(),
             A("mediapool.remove_unused", "Remove Unused Clips…"),
             S(),
             M("Proxies and Optimized Media", {
@@ -281,6 +284,9 @@ Menu timelineMenu()
             A("timeline.add_subtitle_track", "Add Subtitle Track"),
             S(),
             A("timeline.delete_empty_tracks", "Delete Empty Tracks"),
+            S(),
+            A("timeline.bounce_mix", "Bounce Mix to Track"),
+            A("timeline.bounce_tracks", "Bounce Selected Tracks"),
         }),
         M("Timelines", {
             A("timeline.new", "New Timeline…"),

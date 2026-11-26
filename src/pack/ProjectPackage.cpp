@@ -145,6 +145,43 @@ QByteArray rewriteItems(const QByteArray& json, const std::function<void(QJsonOb
     return QJsonDocument(root).toJson(QJsonDocument::Indented);
 }
 
+/// LUT files named by grade nodes ("lut") and clip attributes ("inputLut"): same keys as
+/// core/LutPaths.h. Stored form: "<key>" = entry name, "<key>Embedded" = entry name.
+constexpr const char* kLutKeys[] = {"lut", "inputLut"};
+
+QJsonValue walkLuts(const QJsonValue& value, const std::function<void(QJsonObject&, const QString&)>& fn)
+{
+    if (value.isArray()) {
+        QJsonArray out;
+        for (const QJsonValue& v : value.toArray())
+            out.append(walkLuts(v, fn));
+        return out;
+    }
+    if (!value.isObject())
+        return value;
+    QJsonObject in = value.toObject();
+    QJsonObject obj;
+    for (auto it = in.begin(); it != in.end(); ++it)
+        obj.insert(it.key(), walkLuts(it.value(), fn));
+    for (const char* key : kLutKeys) {
+        const QString k = QLatin1String(key);
+        if (obj.value(k).isString() && !obj.value(k).toString().isEmpty())
+            fn(obj, k);
+    }
+    return obj;
+}
+
+/// Calls @p fn(object, key) for every non-empty LUT key anywhere in the document; changes made
+/// to the object are kept. Empty result when @p json is not a JSON object.
+QByteArray rewriteLuts(
+    const QByteArray& json, const std::function<void(QJsonObject&, const QString&)>& fn)
+{
+    const QJsonDocument doc = QJsonDocument::fromJson(json);
+    if (!doc.isObject())
+        return {};
+    return QJsonDocument(walkLuts(doc.object(), fn).toObject()).toJson(QJsonDocument::Indented);
+}
+
 /// Atomic replace of @p target by @p temp (same folder), then fsync of the folder.
 bool replaceFile(const QString& temp, const QString& target, QString* error)
 {
@@ -191,7 +228,7 @@ bool isContainerFile(const QString& path)
 QByteArray documentToRuntime(const QByteArray& stored, const QString& containerPath)
 {
     const QString container = absolute(containerPath);
-    return rewriteItems(stored, [&container](QJsonObject& item) {
+    const QByteArray items = rewriteItems(stored, [&container](QJsonObject& item) {
         const QString entry = item.value(QLatin1String("embedded")).toString();
         if (entry.isEmpty() || !isValidEntryName(entry))
             return;
@@ -199,12 +236,22 @@ QByteArray documentToRuntime(const QByteArray& stored, const QString& containerP
         item.remove(QLatin1String("relativePath"));
         item.remove(QLatin1String("embedded"));
     });
+    if (items.isEmpty())
+        return items;
+    return rewriteLuts(items, [&container](QJsonObject& obj, const QString& key) {
+        const QString entry = obj.value(key + QLatin1String("Embedded")).toString();
+        if (entry.isEmpty() || !isValidEntryName(entry))
+            return;
+        obj[key] = embeddedPath(container, entry);
+        obj.remove(key + QLatin1String("Relative"));
+        obj.remove(key + QLatin1String("Embedded"));
+    });
 }
 
 QByteArray documentToStorage(const QByteArray& runtime, const QString& containerPath)
 {
     const QString prefix = absolute(containerPath) + QLatin1Char('/');
-    return rewriteItems(runtime, [&prefix](QJsonObject& item) {
+    const QByteArray items = rewriteItems(runtime, [&prefix](QJsonObject& item) {
         const QString path = item.value(QLatin1String("path")).toString();
         if (!path.startsWith(prefix))
             return;
@@ -213,6 +260,37 @@ QByteArray documentToStorage(const QByteArray& runtime, const QString& container
         item[QLatin1String("path")] = entry;
         item[QLatin1String("relativePath")] = entry;
     });
+    if (items.isEmpty())
+        return items;
+    return rewriteLuts(items, [&prefix](QJsonObject& obj, const QString& key) {
+        const QString path = obj.value(key).toString();
+        if (!path.startsWith(prefix))
+            return;
+        const QString entry = path.mid(prefix.size());
+        obj[key] = entry;
+        obj[key + QLatin1String("Embedded")] = entry;
+        obj[key + QLatin1String("Relative")] = entry;
+    });
+}
+
+QByteArray rewriteLutKeys(
+    const QByteArray& json, const std::function<void(QJsonObject&, const QString&)>& fn)
+{
+    return rewriteLuts(json, fn);
+}
+
+QByteArray lutsToFolder(const QByteArray& runtime, const QString& containerPath, const QString& folder)
+{
+    const QString prefix = absolute(containerPath) + QLatin1Char('/');
+    const QDir dir(folder);
+    return rewriteLuts(runtime, [&](QJsonObject& obj, const QString& key) {
+        const QString path = obj.value(key).toString();
+        if (!path.startsWith(prefix))
+            return;
+        const QString entry = path.mid(prefix.size());
+        obj[key] = dir.absoluteFilePath(entry);
+        obj[key + QLatin1String("Relative")] = entry;
+    });
 }
 
 QStringList embeddedEntries(const QByteArray& storedDocument)
@@ -220,6 +298,11 @@ QStringList embeddedEntries(const QByteArray& storedDocument)
     QStringList names;
     rewriteItems(storedDocument, [&names](QJsonObject& item) {
         const QString entry = item.value(QLatin1String("embedded")).toString();
+        if (!entry.isEmpty() && !names.contains(entry))
+            names.append(entry);
+    });
+    rewriteLuts(storedDocument, [&names](QJsonObject& obj, const QString& key) {
+        const QString entry = obj.value(key + QLatin1String("Embedded")).toString();
         if (!entry.isEmpty() && !names.contains(entry))
             names.append(entry);
     });
@@ -359,9 +442,41 @@ QByteArray ProjectPackage::document(QString* error) const
     return runtime;
 }
 
+QByteArray ProjectPackage::withLutsStored(const QByteArray& runtimeDocument, QString* error)
+{
+    // LUT files outside the container (a LUT chosen after the project was packed) are copied in.
+    const QString prefix = m_path + QLatin1Char('/');
+    QStringList sources;
+    rewriteLuts(runtimeDocument, [&](QJsonObject& obj, const QString& key) {
+        const QString path = obj.value(key).toString();
+        if (QDir::isAbsolutePath(path) && !path.startsWith(prefix) && QFileInfo(path).isFile()
+            && !sources.contains(path))
+            sources.append(path);
+    });
+    if (sources.isEmpty())
+        return runtimeDocument;
+    QVector<Added> added;
+    if (addMedia(sources, &added, {}, error) != Status::Ok)
+        return {};
+    QHash<QString, QString> embedded;
+    for (const Added& a : std::as_const(added))
+        embedded.insert(a.source, a.path);
+    return rewriteLuts(runtimeDocument, [&](QJsonObject& obj, const QString& key) {
+        const auto it = embedded.constFind(obj.value(key).toString());
+        if (it != embedded.constEnd())
+            obj[key] = it.value();
+    });
+}
+
 bool ProjectPackage::saveDocument(const QByteArray& runtimeDocument, QString* error)
 {
-    const QByteArray stored = documentToStorage(runtimeDocument, m_path);
+    const QByteArray withLuts = withLutsStored(runtimeDocument, error);
+    if (withLuts.isEmpty()) {
+        if (error && error->isEmpty())
+            *error = QStringLiteral("The project document is not valid JSON");
+        return false;
+    }
+    const QByteArray stored = documentToStorage(withLuts, m_path);
     if (stored.isEmpty()) {
         setError(error, QStringLiteral("The project document is not valid JSON"));
         return false;
@@ -626,6 +741,28 @@ PackResult packProject(
         result.error = QStringLiteral("%1 is not a project file").arg(projectFile);
         return result;
     }
+    // LUT files of grade nodes and input LUTs: the stored path, else the one relative to the
+    // project (the same order as the project loader).
+    const auto lutSource = [&projectDir](const QJsonObject& obj, const QString& key) {
+        const QString path = obj.value(key).toString();
+        if (QFileInfo(path).isFile())
+            return path;
+        const QString rel = obj.value(key + QLatin1String("Relative")).toString();
+        const QString candidate = QDir::isAbsolutePath(path) || path.isEmpty()
+            ? (rel.isEmpty() ? QString() : projectDir.absoluteFilePath(rel))
+            : projectDir.absoluteFilePath(path);
+        return !candidate.isEmpty() && QFileInfo(candidate).isFile()
+            ? QDir::cleanPath(candidate)
+            : QString();
+    };
+    rewriteLuts(json, [&](QJsonObject& obj, const QString& key) {
+        const QString source = lutSource(obj, key);
+        if (source.isEmpty())
+            result.skipped.append(QStringLiteral("%1: LUT file missing (stays linked)")
+                                      .arg(QFileInfo(obj.value(key).toString()).fileName()));
+        else if (!sources.contains(source))
+            sources.append(source);
+    });
 
     const QString target = absolute(containerPath);
     const QString temp = target + QStringLiteral(".part");
@@ -657,7 +794,16 @@ PackResult packProject(
             item[QLatin1String("path")] = entry;
             item[QLatin1String("relativePath")] = entry;
         });
-        if (!package->saveStoredDocument(stored, &result.error)) {
+        const QByteArray storedWithLuts
+            = rewriteLuts(stored, [&](QJsonObject& obj, const QString& key) {
+                  const QString entry = entryOfSource.value(lutSource(obj, key));
+                  if (entry.isEmpty())
+                      return;
+                  obj[key] = entry;
+                  obj[key + QLatin1String("Embedded")] = entry;
+                  obj[key + QLatin1String("Relative")] = entry;
+              });
+        if (!package->saveStoredDocument(storedWithLuts, &result.error)) {
             result.status = Status::Failed;
             package.reset();
             QFile::remove(temp);

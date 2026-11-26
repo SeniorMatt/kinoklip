@@ -78,12 +78,19 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
         QCoreApplication::translate("kk::CommandLine",
             "Print whether secure downloads (HTTPS) work and which TLS library is used, then "
             "exit (status 1 if they do not)."));
+    const QCommandLineOption graphicsCheck(QStringLiteral("graphics-check"),
+        QCoreApplication::translate("kk::CommandLine",
+            "Draw a test picture with the graphics card, read it back, say which card and driver "
+            "are used and whether video decodes on the card (and why not), print a report for "
+            "bug reports, then exit (status 1 if the picture is wrong). Optional: a video file "
+            "to decode with every backend: --graphics-check clip.mp4"));
     const QCommandLineOption lang(QStringLiteral("lang"),
         QCoreApplication::translate("kk::CommandLine",
             "Interface language for this run (en, de, es, ru, uk); the stored choice is kept. "
             "The environment variable KK_LANG does the same."),
         QStringLiteral("code"));
     parser.addOption(lang);
+    parser.addOption(graphicsCheck);
     parser.addOption(checkTls);
     parser.addOption(render);
     parser.addOption(preset);
@@ -100,6 +107,16 @@ bool parseCommandLine(const QStringList& arguments, CommandLineOptions& options,
 
     QStringList positional = parser.positionalArguments();
     options.checkTls = parser.isSet(checkTls);
+    options.graphicsCheck = parser.isSet(graphicsCheck);
+    if (options.graphicsCheck) {
+        if (positional.size() > 1) {
+            if (error)
+                *error = QStringLiteral("usage: --graphics-check [video file]");
+            return false;
+        }
+        options.graphicsCheckFile = positional.value(0);
+        return true;
+    }
     options.resetLayout = parser.isSet(resetLayout);
     options.noWelcome = parser.isSet(noWelcome);
     options.style = parser.value(style);

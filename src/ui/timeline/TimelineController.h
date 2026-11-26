@@ -402,6 +402,12 @@ public:
     /// Removes every track without clips, keeping at least one video and one audio track and
     /// every locked track (spec 12.8). One undo step.
     void deleteEmptyTracks();
+    /// Timeline > Bounce Mix to Track: renders the mix (In / Out range or the whole timeline)
+    /// into a new audio track as one clip (spec 176).
+    void bounceMixToTrack();
+    /// Timeline > Bounce Selected Tracks: each audio track that holds a selected clip (none
+    /// selected: the tracks with the track selector on) into a new audio track of its own.
+    void bounceSelectedTracks();
     /// Undo label of source edit @p mode ("Insert Clip", "Overwrite Clip", ...).
     [[nodiscard]] static QString sourceEditLabel(SourceEditMode mode);
     /// Track header menu > Move Track Up / Down (spec 12.9): swaps track @p ref with its

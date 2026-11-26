@@ -125,6 +125,16 @@ single-file project has one extra field:
   extension works. A path is embedded when a component ends in `.kinoklip` and that prefix is a
   regular file (`pack::splitEmbeddedPath`).
 
+**LUT files** (a grade node's `lut`, a clip's `inputLut`, wherever they occur in the document) are
+stored the same way (spec 175.5): the LUT is a `media/<id>/<name>.cube` entry (`addMedia()`, so the
+same file is stored once), and the stored document has `"lut": "<entry>"`, `"lutEmbedded":
+"<entry>"` and `"lutRelative": "<entry>"`. The runtime form replaces `lut` with the embedded path
+(the LUT reader goes through `media::MediaSource`, so it reads inside the container) and drops the
+two other keys. `ProjectPackage::saveDocument()` copies LUT files that lie outside the container
+(chosen after Pack) in before saving; Pack copies the LUTs it finds (stored path, else the one
+relative to the project); Unpack and Save As linked write them next to the media
+(`pack::lutsToFolder()`); `embeddedEntries()` includes them, so Compact keeps them.
+
 Since no field changes meaning, no format version bump and no migration is needed. The only
 loader change: `mediaPoolFromJson()` checks existence with `media::mediaExists()`, so an embedded
 path counts as present (otherwise the "same file name next to the project" fall-back could pick
@@ -189,6 +199,7 @@ copy in 8 MiB chunks. Cancelling, failing or crashing never leaves the file inva
 | Pack | `packProject(kkproj, out.kinoklip)` | copies every used media file; writes `out.kinoklip.part`, renames when complete; offline media and image sequences stay linked and are reported |
 | Unpack | `unpackProject(container, folder)` | media to `folder/media/<id>/<name>` (original names, CRC checked, modification times restored) and `folder/<name>.kkproj`; never overwrites |
 | Compact | `compactProject(container)` | rewrites without unreferenced media and old documents into `.<name>.compact-<pid>.part` in the same folder, fsync, atomic rename; CRC-checks everything it copies; reports size before / after; `compactedSizeEstimate()` previews |
+| Project archive | `exportArchive()` / `restoreArchive()` (`src/pack/ProjectArchive.h`) | not a container: the `.dra` folder of File > Project Tools > Export / Restore Project Archive (spec 175) |
 | Verify | `verifyContainer(container, checkData)` | index, overlaps, document, manifest, missing media, CRC of every byte |
 | Repair | `repairContainer(container)` | cuts a torn tail and writes a fresh end record |
 

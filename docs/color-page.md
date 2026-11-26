@@ -337,9 +337,11 @@ Decisions (colorui):
   frame is the program composite, so these are exact for a clip that covers the frame
   untransformed; the window overlay itself follows the clip's transform
   (`render::clipTransform()`).
-- **Clip thumbnails** are the graded program frame at each clip's middle frame (112 x 63), so a
-  clip covered by a higher track shows the higher one there; they refresh when the clip, its
-  grade or the timeline grade change.
+- **Clip thumbnails** are the graded picture of the clip itself at its middle frame (112 x 63):
+  the program is rendered with the other video tracks left out (`ColorFrameSource::isolatedTimeline()`),
+  so a clip that a higher track covers shows its own picture (spec 178); adjustment clips, which
+  have no picture of their own, show the program. They refresh when the clip, its grade or the
+  timeline grade change.
 - **Default node selection**: when the grade's output is a mixer the page starts on the last
   corrector (the palettes edit correctors).
 - **Keyframes** (bughunt5): Color > Add / Remove Keyframe keys every value of the current node
@@ -373,5 +375,4 @@ Decisions (colorui):
 Tracking of windows, polygon shape keyframes and Bezier windows, Midtone Detail, soft clip,
 HDR / log wheels, key mixer / splitter / outside nodes, node presets and versions, ColorTrace
 and grade groups, keyframe strip on the Color page, Sizing palette, node labels typed in the
-editor, relative LUT paths and packing LUTs into single-file projects, thumbnails of the
-clip itself when a higher track covers it.
+editor.

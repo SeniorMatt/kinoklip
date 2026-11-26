@@ -152,7 +152,8 @@ private slots:
                  "effect.list", "transition.list", "effect.add", "effect.stack", "effect.set",
                  "effect.remove", "effect.enable", "transition.set", "transition.remove",
                  "generator.add", "title.add", "title.set", "keyframe.set", "keyframe.list",
-                 "keyframe.delete", "track.list", "track.add", "track.set", "title.layer_list",
+                 "keyframe.delete", "track.list", "track.add", "track.set", "track.bounce",
+                 "project.archive", "project.restore-archive", "title.layer_list",
                  "title.layer_add", "title.layer_remove", "title.layer_move", "title.layer_set"})
             QVERIFY2(names.contains(QLatin1String(expected)), expected);
         QCOMPARE(names.size(), QSet<QString>(names.begin(), names.end()).size()); // unique
@@ -1097,6 +1098,66 @@ private slots:
             QString("unknown_effect"));
         QVERIFY(call("effect.list", {{"category", "video"}}).data["items"].toArray().size() > 20);
         QCOMPARE(call("effect.list", {{"category", "sound"}}).errorCode, QString("bad_value"));
+    }
+
+    /// Bounce Mix to Track / Bounce Selected Tracks as a command (spec 176).
+    void bounceTracks()
+    {
+        makeProject(QStringLiteral("bounce.kkproj"));
+        ok("clip.add", {{"media", videoId()}, {"source-out", "00:00:00:12"}}); // half a second
+        bad("track.bounce", {}, "bad_value");
+        bad("track.bounce", {{"mix", true}, {"tracks", QJsonArray {"A1"}}}, "bad_value");
+        bad("track.bounce", {{"tracks", QJsonArray {"V1"}}}, "unknown_track");
+        bad("track.bounce", {{"tracks", QJsonArray {"A9"}}}, "unknown_track");
+        const CommandResult mix = ok("track.bounce", {{"mix", true}});
+        QCOMPARE(mix.data["tracks"].toArray().size(), 1);
+        const QString mixTrack = mix.data["tracks"][0].toString();
+        QCOMPARE(mixTrack, QString("A2"));
+        QCOMPARE(clips(mixTrack).size(), 1);
+        QCOMPARE(clips(mixTrack)[0].toObject()["start"].toInteger(), qint64(0));
+        const QString file = mix.data["files"][0].toString();
+        QVERIFY(QFileInfo(file).isFile());
+        QVERIFY(QFileInfo(file).size() > 6 * 48000 / 2); // 24-bit stereo, half a second
+        QVERIFY(file.startsWith(path("Bounced Audio/")));
+        const CommandResult one = ok("track.bounce", {{"tracks", QJsonArray {"A1"}}});
+        QCOMPARE(one.data["tracks"].toArray().size(), 1);
+        QCOMPARE(one.data["tracks"][0].toString(), QString("A3"));
+        QCOMPARE(clips(QStringLiteral("A3")).size(), 1);
+        QCOMPARE(clips(QStringLiteral("A1")).size(), 1); // the source track stays
+    }
+
+    /// Export Project Archive / Restore Project Archive as commands (spec 175).
+    void projectArchive()
+    {
+        makeProject(QStringLiteral("archive.kkproj"));
+        const QString folder = path("archive/Trip.dra");
+        const CommandResult exported = ok("project.archive", {{"folder", folder}});
+        QCOMPARE(exported.data["media"].toInt(), 2);
+        QVERIFY(QFileInfo(folder + QStringLiteral("/archive.json")).isFile());
+        QVERIFY(QFileInfo(folder + QStringLiteral("/Trip.kkproj")).isFile());
+        bad("project.archive", {{"folder", folder}}, "archive_failed"); // never overwrites
+        const QString into = path("restored/Trip");
+        const CommandResult restored
+            = call("project.restore-archive", {{"folder", folder}, {"into", into}});
+        QVERIFY2(restored.ok, qPrintable(restored.errorCode + " " + restored.error));
+        QCOMPARE(restored.data["project"].toString(), into + QStringLiteral("/Trip.kkproj"));
+        // The restored project opens with its media inside the new folder.
+        const CommandResult info
+            = call("media.list", {{"project", restored.data["project"].toString()}});
+        QVERIFY(info.ok);
+        int inside = 0;
+        for (const QJsonValue& v : info.data["media"].toArray()) {
+            if (v.toObject()["kind"].toString() == QLatin1String("file")
+                && v.toObject()["path"].toString().startsWith(into + QStringLiteral("/Media/"))
+                && !v.toObject()["offline"].toBool())
+                ++inside;
+        }
+        QCOMPARE(inside, 2);
+        QCOMPARE(call("project.restore-archive", {{"folder", path("archive")}, {"into", path("x")}})
+                     .errorCode,
+            QString("not_an_archive"));
+        QCOMPARE(call("project.restore-archive", {{"folder", folder}, {"into", into}}).errorCode,
+            QString("restore_failed"));
     }
 };
 

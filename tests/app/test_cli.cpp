@@ -349,6 +349,35 @@ private slots:
         QVERIFY(original.open(QIODevice::ReadOnly));
         QCOMPARE(original.readAll(), before);
     }
+
+    /// `kinoklip --graphics-check` (spec 177): a report in plain text with the sections a bug
+    /// report needs, and an exit code that follows the test picture. Offscreen here, so the
+    /// OpenGL part is the software rasteriser's or missing, but the report is complete either way.
+    void graphicsCheckPrintsAReport()
+    {
+        const Run r = run({QStringLiteral("--graphics-check")});
+        QVERIFY2(r.exitCode == 0 || r.exitCode == 1, qPrintable(QString::fromUtf8(r.err)));
+        const QString out = QString::fromUtf8(r.out);
+        QVERIFY2(out.startsWith(QStringLiteral("Kinoklip graphics check")), qPrintable(out));
+        for (const char* section : {"Platform plugin:", "OpenGL", "Hardware video decoding",
+                 "GPU render nodes:", "VAAPI", "CUDA", "Vulkan", "Verdict:"})
+            QVERIFY2(out.contains(QLatin1String(section)), section);
+        QCOMPARE(r.exitCode == 0, out.contains(QStringLiteral("Test picture:"))
+                && out.contains(QStringLiteral("correct"))
+                && !out.contains(QStringLiteral("WRONG")));
+        // With a video file every backend is tried, software always works.
+        const QString video = QStringLiteral(KK_TEST_DATA_DIR "/generated/h264_25fps.mp4");
+        if (QFileInfo::exists(video)) {
+            const Run withFile = run({QStringLiteral("--graphics-check"), video});
+            const QString text = QString::fromUtf8(withFile.out);
+            QVERIFY2(text.contains(QStringLiteral("Decoding h264_25fps.mp4")), qPrintable(text));
+            QVERIFY2(text.contains(QStringLiteral("Off (software):")), qPrintable(text));
+            QVERIFY(text.contains(QStringLiteral("software")));
+        }
+        QCOMPARE(run({QStringLiteral("--graphics-check"), QStringLiteral("a"), QStringLiteral("b")})
+                     .exitCode,
+            2);
+    }
 };
 
 QTEST_GUILESS_MAIN(TestCli)

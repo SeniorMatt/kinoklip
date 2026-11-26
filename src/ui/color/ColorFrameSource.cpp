@@ -31,6 +31,19 @@ constexpr int kInputDelayMs = 60;
 constexpr int kThumbDelayMs = 250;
 } // namespace
 
+std::shared_ptr<const TimelineData> ColorFrameSource::isolatedTimeline(
+    const TimelineData& data, quint64 clipId)
+{
+    const auto loc = editops::findClip(data, clipId);
+    const ClipData* clip = editops::clipById(data, clipId);
+    if (!loc || !clip || loc->track.type != TrackType::Video || clip->kind == ClipKind::Adjustment)
+        return nullptr;
+    auto copy = std::make_shared<TimelineData>(data);
+    for (size_t i = 0; i < copy->videoTracks.size(); ++i)
+        copy->videoTracks[i].enabled = int(i) == loc->track.index;
+    return copy;
+}
+
 ColorFrameSource::ColorFrameSource(
     PlaybackEngine* engine, Project* project, ColorSession* session, QObject* parent)
     : QObject(parent)
@@ -185,6 +198,7 @@ void ColorFrameSource::renderThumbnailsNow()
         job.frame = c->start + std::max<int64_t>(0, c->duration / 2);
         job.size = kThumbSize;
         job.grades = PlaybackEngine::ImageGrades::All; // the strip ignores Shift+D
+        job.timeline = isolatedTimeline(*m_project->timeline()->snapshot(), id);
         job.done = [this, id, sig](const QImage& image) {
             Thumb& t = m_thumbs[id];
             if (t.signature != sig)
@@ -247,6 +261,10 @@ void ColorFrameSource::renderDetailsNow()
         job.frame = frame;
         job.size = size;
         job.grades = PlaybackEngine::ImageGrades::All;
+        // The clip under the playhead shows the program (what the viewer shows), the others
+        // their own picture.
+        if (!(id == current && frame == playhead))
+            job.timeline = isolatedTimeline(*m_project->timeline()->snapshot(), id);
         job.done = [this, id, sig](const QImage& image) {
             Thumb& t = m_details[id];
             if (t.signature != sig)
@@ -270,8 +288,9 @@ void ColorFrameSource::runNext()
         return;
     m_running = m_queue.takeFirst();
     m_busy = true;
-    auto future = std::make_shared<std::future<RenderedFramePtr>>(
-        m_engine->renderImage(m_running.frame, m_running.size, m_running.grades));
+    auto future = std::make_shared<std::future<RenderedFramePtr>>(m_running.timeline
+            ? m_engine->renderImageOf(m_running.timeline, m_running.frame, m_running.size)
+            : m_engine->renderImage(m_running.frame, m_running.size, m_running.grades));
     m_watcher->setFuture(QtConcurrent::run([future] { return future->get(); }));
 }
 

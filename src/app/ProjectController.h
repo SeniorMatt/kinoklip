@@ -10,6 +10,7 @@
 #include <QPointer>
 #include <QStringList>
 
+#include <functional>
 #include <memory>
 
 class QMenu;
@@ -26,7 +27,9 @@ class ProjectManagerWindow;
 
 namespace pack {
 class ProjectPackage;
-}
+struct ArchiveOptions;
+struct ArchiveResult;
+} // namespace pack
 
 /// Implements the document commands (file.new, file.open, file.save, file.save_as,
 /// file.import_media, file.pack_project, file.unpack_project, file.compact_project,
@@ -112,6 +115,13 @@ public:
     /// a never-saved project); the new file becomes the open project. False if cancelled or
     /// failed (the user was told).
     bool saveAsSingleFile(const QString& target);
+    /// The work of exportArchive() without dialogs: the open project (as it is now, saved or
+    /// not) into the new archive folder @p folder.
+    pack::ArchiveResult exportArchiveTo(
+        const QString& folder, pack::ArchiveOptions options, const std::function<bool(qint64, qint64)>& progress = {});
+    /// Render cache chunk files of the active timeline that exist on disk.
+    [[nodiscard]] QStringList renderCacheFiles() const;
+
     /// Save As into a linked project @p kkprojTarget (Unpack: the media are written to
     /// `<target folder>/media/...`); the linked project becomes the open project.
     bool saveAsLinked(const QString& kkprojTarget);
@@ -147,6 +157,12 @@ public slots:
     /// File > Verify Project File: checks every byte of the single-file project; offers
     /// Repair when the file is damaged after a crash.
     void verifyProject();
+    /// File > Export Project Archive...: asks what to include (proxy media, optimized media,
+    /// render cache) and a name, then copies the project and all its media into a ".dra" folder.
+    void exportArchive();
+    /// File > Restore Project Archive...: copies an archive folder to a new folder and opens
+    /// the project in it.
+    void restoreArchive();
 
 signals:
     /// The open project became single-file / linked or read-only / writable.

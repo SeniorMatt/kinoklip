@@ -77,3 +77,11 @@ in a part, it turns red again and is rendered again.
 - **Proxies and caches fill the disk.** Delete them with **Delete Proxy Media** in the media
   pool's right-click menu and **Playback > Delete Render Cache**. The render cache folder is
   also kept below a size limit (20 GB by default, in **Preferences**).
+
+## Check what the graphics card does
+
+`kinoklip --graphics-check` (from a terminal) draws a test picture with your graphics card, reads
+it back and prints which card and driver are used, whether the "card" is really the processor
+(software drawing), which hardware video decoders open (VAAPI, CUDA, Vulkan) and, if not, why not.
+Add a video file to see how each decoder handles it: `kinoklip --graphics-check clip.mp4`. Paste
+the report into a bug report if playback is slow on a computer with a graphics card.

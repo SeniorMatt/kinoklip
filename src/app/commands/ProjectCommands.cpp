@@ -5,8 +5,10 @@
 #include "app/commands/CommandSupport.h"
 #include "core/Project.h"
 #include "core/Timeline.h"
+#include "pack/ProjectArchive.h"
 
 #include <QCoreApplication>
+#include <QDir>
 #include <QFileInfo>
 
 namespace kk::commands {
@@ -145,10 +147,71 @@ CommandResult runSessionInfo(CommandContext& ctx, const CommandArgs&)
                                : QStringLiteral(" (") + path + QLatin1Char(')')));
 }
 
+CommandResult runProjectArchive(CommandContext& ctx, const CommandArgs& args)
+{
+    const QString folder = QFileInfo(args.string(QStringLiteral("folder"))).absoluteFilePath();
+    pack::ArchiveOptions options;
+    options.proxyMedia = args.boolean(QStringLiteral("proxies"));
+    options.optimizedMedia = args.boolean(QStringLiteral("optimized"));
+    const QString file = ctx.project->filePath().isEmpty() ? ctx.projectPath : ctx.project->filePath();
+    const QString baseDir = file.isEmpty() ? QDir::currentPath() : QFileInfo(file).absolutePath();
+    const pack::ArchiveResult result = pack::exportArchive(
+        ctx.project->documentJson(file.isEmpty() ? baseDir + QStringLiteral("/untitled") : file),
+        baseDir, ctx.project->settings().name, folder, options);
+    if (result.status != pack::Status::Ok)
+        return fail("archive_failed", result.error);
+    return CommandResult::success(
+        {{QStringLiteral("folder"), folder}, {QStringLiteral("project"), result.projectFile},
+            {QStringLiteral("media"), result.mediaFiles}, {QStringLiteral("luts"), result.lutFiles},
+            {QStringLiteral("proxies"), result.proxyFiles},
+            {QStringLiteral("skipped"), QJsonArray::fromStringList(result.skipped)}},
+        QStringLiteral("wrote the project archive %1 (%2 media file(s), %3 skipped)")
+            .arg(folder)
+            .arg(result.mediaFiles)
+            .arg(result.skipped.size()));
+}
+
+CommandResult runProjectRestoreArchive(CommandContext&, const CommandArgs& args)
+{
+    const QString folder = QFileInfo(args.string(QStringLiteral("folder"))).absoluteFilePath();
+    if (!pack::isArchiveFolder(folder))
+        return fail("not_an_archive", QStringLiteral("%1 is not a project archive").arg(folder));
+    const QString into = QFileInfo(args.string(QStringLiteral("into"))).absoluteFilePath();
+    const pack::RestoreResult result = pack::restoreArchive(folder, into);
+    if (result.status != pack::Status::Ok)
+        return fail("restore_failed", result.error);
+    return CommandResult::success(
+        {{QStringLiteral("project"), result.projectFile}, {QStringLiteral("files"), result.files}},
+        QStringLiteral("restored the archive to %1").arg(result.projectFile));
+}
+
 } // namespace
 
 void registerProjectCommands(CommandRegistry& registry)
 {
+    registry.add({{QStringLiteral("project.archive"),
+                      QStringLiteral("Export Project Archive: copy the project and every media "
+                                     "file it uses into a new archive folder (.dra)."),
+                      {{QStringLiteral("folder"), ParamType::Path,
+                           QStringLiteral("archive folder to create (must not exist)"), true, {}, {}},
+                          {QStringLiteral("proxies"), ParamType::Boolean,
+                              QStringLiteral("also copy the linked proxy media"), false,
+                              QStringLiteral("false"), {}},
+                          {QStringLiteral("optimized"), ParamType::Boolean,
+                              QStringLiteral("also copy the linked optimized media"), false,
+                              QStringLiteral("false"), {}}},
+                      ProjectUse::Read, false},
+        runProjectArchive});
+    registry.add({{QStringLiteral("project.restore-archive"),
+                      QStringLiteral("Restore Project Archive: copy an archive folder to a new "
+                                     "folder; the project inside it uses the copies."),
+                      {{QStringLiteral("folder"), ParamType::Path,
+                           QStringLiteral("the archive folder (.dra)"), true, {}, {}},
+                          {QStringLiteral("into"), ParamType::Path,
+                              QStringLiteral("new folder to restore into (must not exist)"), true,
+                              {}, {}}},
+                      ProjectUse::None, false},
+        runProjectRestoreArchive});
     registry.add({{QStringLiteral("version"), QStringLiteral("Print the Kinoklip version."), {},
                       ProjectUse::None, false},
         runVersion});

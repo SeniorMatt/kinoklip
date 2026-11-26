@@ -102,7 +102,8 @@ Shipped in 1.4 ([release notes](releases/v1.4.0.md)):
 
 - [x] Compositing: a Spline panel (Fusion-style curve editor for every animated node value) and a Keyframes panel on the page, with keyframe loops: Loop, Ping-Pong and Relative (repeat with offset) before and after the keys, Reverse and Time Stretch; the loop commands also in the Edit page's Curves view
 - [x] Compositing: dropping an output onto a connected node adds a Merge; Merge has Flip Horizontal and Flip Vertical
-- [ ] Edit: change Transform and Crop of several selected clips at once (Inspector and viewer handles); copy transitions with all their settings (Alt-drag, Ctrl+C / Ctrl+V); audio plays after a big paste without a restart
+- [x] Edit: change Transform and Crop of several selected clips at once (Inspector and viewer handles); copy transitions with all their settings (Alt-drag, Ctrl+C / Ctrl+V) (spec 179.1, 24.1, 24.11, 13.17, 13.20)
+- [ ] Edit: audio plays after a big paste without a restart (guarded by tests, spec 16.8; the owner's failure was never reproduced: needs the owner's project)
 - [x] Background Removal: a general model for pictures and any subject (BiRefNet)
 - [x] Media Pool: Save a Copy to Computer for media stored in a single-file project
 - [x] Timeline: thumbnails come back quickly after zooming
@@ -274,25 +275,26 @@ when the owner asks for it.
 - [x] Color: AgX colour management, a native AgX node on the Color page and an output tone mapping in Project Settings > Color Management (user request, issue 10; spec 112; guide use-agx)
 - [x] Website on GitHub Pages (starts when the owner says): home page with a Download button for the latest AppImage, the guide as searchable pages built from docs/guide, new screenshots in Breeze Dark with real (not generated) people in the sample footage, and a simple bug report form that opens a GitHub issue for people who have no GitHub account
 
-- [ ] Audio: Bounce Mix to Track and Bounce Selected Tracks (Timeline menu): render the whole mix, or each selected track with its effects, into a new audio track as one clip
+- [x] Audio: Bounce Mix to Track and Bounce Selected Tracks (Timeline menu): render the whole mix, or each selected track with its effects, into a new audio track as one clip (spec 176; command `track bounce`, so also the command line and the MCP server)
 - [x] Edit: Auto Align Clips (clip context menu): line up selected clips on different tracks by timecode or by matching their sound (user request, issue 16; spec 153; command `clip align`, so also the command line and the MCP server; guide line-up-clips-by-sound)
 - [ ] Edit: Paste Mix to Current Track (Edit menu); its exact behaviour is read from public documentation first
 - [ ] Edit: Trim Editor as a window of its own: outgoing and incoming frames side by side with trim buttons
-- [ ] Project: Archive Project (File menu): copy the project and every media file it uses into one folder, and open such a folder again
+- [x] Project: Archive Project (File > Project Tools > Export Project Archive / Restore Project Archive): copy the project and every media file it uses into one .dra folder, optionally with proxy media, optimized media and render cache, and restore such a folder (spec 175; commands `project archive`, `project restore-archive`)
+- [ ] Project: archive only the media the timelines use; restore into the Project Manager's library (spec 175.6)
 - [x] Media: metadata import and export (File > Import / Export): clip metadata of the Media Pool to and from a CSV file (spec 166)
 - [x] Interface: named layouts (Workspace > Layout Presets > Save Layout as Preset / Load / Delete): keep the panels and sizes of every page under a name (spec 167)
 - [ ] Interface: layout presets: window size and position, and export / import of a preset file
 - [ ] Interface: translations: a language choice in Preferences and translation files that volunteers can fill in
 - [x] Deliver: lossless FFV1 video (Matroska, QuickTime; preset Lossless FFV1 + FLAC) and MP3 audio as export formats (spec 165)
-- [ ] Platform: `kinoklip --graphics-check`: draws a test picture with the graphics card, reads it back, says whether video decodes on the card and why not, and prints a report for bug reports
+- [x] Platform: `kinoklip --graphics-check`: draws a test picture with the graphics card, reads it back, says whether video decodes on the card and why not, and prints a report for bug reports (spec 177)
 - [ ] Platform: a Flathub submission (the Kinoklip Flatpak repository exists, see "Next version")
 - [ ] Pages: compare the Media, Cut, Compositing, Color, Audio and Deliver pages with Resolve and add what is missing
 - [ ] Media: clone tool on the Media page
 - [x] Deliver: render presets per platform: YouTube, Vimeo, X, TikTok, Instagram, Facebook (spec 165.3)
 - [ ] Titles: automatic subtitles
 - [x] Color: relative LUT paths for grade node and input LUTs (spec 168.1)
-- [ ] Color: packing LUTs into single-file projects
-- [ ] Color: thumbnails of the clip itself when a higher track covers it
+- [x] Color: packing LUTs into single-file projects (spec 175.5)
+- [x] Color: thumbnails of the clip itself when a higher track covers it (spec 178)
 - [ ] Audio: recording and ADR, plugins, surround formats, sound library
 - [ ] Audio: elastic wave, console mapping, VCAs, more effects
 - [ ] Project: pack with trimming (only the used parts of long clips plus handles) and image sequences inside single-file projects

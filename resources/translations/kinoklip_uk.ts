@@ -752,6 +752,26 @@ The program was probably closed by the system because the computer ran out of me
         <source>LUT files (*.cube)</source>
         <translation>Файли LUT (*.cube)</translation>
     </message>
+    <message>
+        <source>Project archive (*.%1)</source>
+        <translation>Архів проєкту (*.%1)</translation>
+    </message>
+    <message>
+        <source>Bounce Mix to Track</source>
+        <translation>Звести мікс у доріжку</translation>
+    </message>
+    <message>
+        <source>Bounce Selected Tracks</source>
+        <translation>Звести вибрані доріжки</translation>
+    </message>
+    <message>
+        <source>Select clips on the audio tracks to bounce, or switch on the track selector of those tracks.</source>
+        <translation>Виберіть кліпи на аудіодоріжках, які потрібно звести, або ввімкніть селектор доріжок у цих доріжок.</translation>
+    </message>
+    <message>
+        <source>Rendering the audio…</source>
+        <translation>Рендеринг звуку…</translation>
+    </message>
 </context>
 <context>
     <name>TimelineRepair</name>
@@ -3696,6 +3716,22 @@ The program was probably closed by the system because the computer ran out of me
         <source>Moves the selected clips so their start timecodes match the reference clip (the one on the lowest video track).</source>
         <translation>Зсуває вибрані кліпи так, щоб їхні початкові таймкоди збігалися з таймкодом опорного кліпу (кліпу на нижній відеодоріжці).</translation>
     </message>
+    <message>
+        <source>Copies the project and every media file it uses into one archive folder (.dra), with the proxy media, optimized media and render cache if you ask for them.</source>
+        <translation>Копіює проєкт і кожен використаний ним медіафайл в одну теку архіву (.dra), за бажанням разом із проксі-медіа, оптимізованими медіа та кешем рендерингу.</translation>
+    </message>
+    <message>
+        <source>Copies a project archive folder (.dra) to a new folder and opens the project in it.</source>
+        <translation>Копіює теку архіву проєкту (.dra) в нову теку та відкриває проєкт із неї.</translation>
+    </message>
+    <message>
+        <source>Renders the whole audio mix, as it is heard and exported, into a new audio track as one clip.</source>
+        <translation>Рендерить весь звуковий мікс у тому вигляді, в якому він звучить і експортується, на нову аудіодоріжку одним кліпом.</translation>
+    </message>
+    <message>
+        <source>Renders each audio track with a selected clip (or with its track selector on), with its effects and fader, into a new audio track of its own.</source>
+        <translation>Рендерить кожну аудіодоріжку з вибраним кліпом (або з увімкненим селектором доріжки) разом з її ефектами та фейдером на окрему нову аудіодоріжку.</translation>
+    </message>
 </context>
 <context>
     <name>kk::ActionRegistry</name>
@@ -4162,6 +4198,61 @@ The program was probably closed by the system because the computer ran out of me
     <message>
         <source>Correlation %1</source>
         <translation>Кореляція %1</translation>
+    </message>
+</context>
+<context>
+    <name>kk::AudioBounce</name>
+    <message>
+        <source>Bounce</source>
+        <translation>зведення</translation>
+    </message>
+    <message>
+        <source>Bounce Mix to Track</source>
+        <translation>Звести мікс у доріжку</translation>
+    </message>
+    <message>
+        <source>Bounce Selected Tracks</source>
+        <translation>Звести вибрані доріжки</translation>
+    </message>
+    <message>
+        <source>Cancelled</source>
+        <translation>Скасовано</translation>
+    </message>
+    <message>
+        <source>Mix</source>
+        <translation>Мікс</translation>
+    </message>
+    <message>
+        <source>Mix Bounce</source>
+        <translation>Зведення міксу</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be added to the media pool: %1</source>
+        <translation>Не вдалося додати зведений звук до медіапулу: %1</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be added to the project.</source>
+        <translation>Не вдалося додати зведений звук до проєкту.</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be placed on a track.</source>
+        <translation>Не вдалося розмістити зведений звук на доріжці.</translation>
+    </message>
+    <message>
+        <source>The bounced audio could not be written: %1</source>
+        <translation>Не вдалося записати зведений звук: %1</translation>
+    </message>
+    <message>
+        <source>The folder for the bounced audio could not be created: %1</source>
+        <translation>Не вдалося створити теку для зведеного звуку: %1</translation>
+    </message>
+    <message>
+        <source>The timeline has nothing to bounce.</source>
+        <translation>На таймлайні нема чого зводити.</translation>
+    </message>
+    <message>
+        <source>There is no audio track to bounce.</source>
+        <translation>Немає аудіодоріжки для зведення.</translation>
     </message>
 </context>
 <context>
@@ -11810,6 +11901,10 @@ Thank you for watching</source>
     <message>
         <source>Interface language for this run (en, de, es, ru, uk); the stored choice is kept. The environment variable KK_LANG does the same.</source>
         <translation>Мова інтерфейсу для цього запуску (en, de, es, ru, uk); збережений вибір не змінюється. Те саме робить змінна середовища KK_LANG.</translation>
+    </message>
+    <message>
+        <source>Draw a test picture with the graphics card, read it back, say which card and driver are used and whether video decodes on the card (and why not), print a report for bug reports, then exit (status 1 if the picture is wrong). Optional: a video file to decode with every backend: --graphics-check clip.mp4</source>
+        <translation>Малює тестову картинку за допомогою відеокарти, зчитує її назад, повідомляє, яка карта і який драйвер використовуються і чи декодується відео на карті (а якщо ні, то чому), друкує звіт для повідомлень про помилки та завершується (код 1, якщо картинка неправильна). Необов’язково: відеофайл, який декодується кожним бекендом: --graphics-check clip.mp4</translation>
     </message>
 </context>
 <context>
@@ -24333,6 +24428,22 @@ Import files with %1 or drop them here.</source>
         <source>Auto Align Clips</source>
         <translation>Автовирівнювання кліпів</translation>
     </message>
+    <message>
+        <source>Bounce Mix to Track</source>
+        <translation>Звести мікс у доріжку</translation>
+    </message>
+    <message>
+        <source>Bounce Selected Tracks</source>
+        <translation>Звести вибрані доріжки</translation>
+    </message>
+    <message>
+        <source>Export Project Archive…</source>
+        <translation>Експортувати архів проєкту…</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive…</source>
+        <translation>Відновити архів проєкту…</translation>
+    </message>
 </context>
 <context>
     <name>kk::MetadataPanel</name>
@@ -29592,6 +29703,58 @@ Estimated size after compacting: %3</source>
         <source>“%1” was repaired. Verify it again to check every byte.</source>
         <translation>«%1» виправлено. Перевірте його ще раз, щоб звірити кожен байт.</translation>
     </message>
+    <message>
+        <source>Export Project Archive</source>
+        <translation>Експорт архіву проєкту</translation>
+    </message>
+    <message>
+        <source>Include Proxy Media</source>
+        <translation>Включити проксі-медіа</translation>
+    </message>
+    <message>
+        <source>Include Optimized Media</source>
+        <translation>Включити оптимізовані медіа</translation>
+    </message>
+    <message>
+        <source>Include Render Cache</source>
+        <translation>Включити кеш рендерингу</translation>
+    </message>
+    <message>
+        <source>The project archive could not be written: %1</source>
+        <translation>Не вдалося записати архів проєкту: %1</translation>
+    </message>
+    <message>
+        <source>%n file stays linked (not stored in the archive):</source>
+        <translation>%n файл залишається пов’язаним (не зберігається в архіві):</translation>
+    </message>
+    <message>
+        <source>%n files stay linked (not stored in the archive):</source>
+        <translation>%n файлів залишаються пов’язаними (не зберігаються в архіві):</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive: Choose the Archive Folder</source>
+        <translation>Відновлення архіву проєкту: виберіть теку архіву</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive</source>
+        <translation>Відновлення архіву проєкту</translation>
+    </message>
+    <message>
+        <source>%1 is not a project archive.</source>
+        <translation>%1 не є архівом проєкту.</translation>
+    </message>
+    <message>
+        <source>Restore Project Archive: Choose the Folder to Restore Into</source>
+        <translation>Відновлення архіву проєкту: виберіть теку призначення</translation>
+    </message>
+    <message>
+        <source>Copying the archive into %1…</source>
+        <translation>Архів копіюється до %1…</translation>
+    </message>
+    <message>
+        <source>The project archive could not be restored: %1</source>
+        <translation>Не вдалося відновити архів проєкту: %1</translation>
+    </message>
 </context>
 <context>
     <name>kk::ProjectKinds</name>
@@ -34292,6 +34455,22 @@ Restart Kinoklip to apply them.</source>
     <message>
         <source>Auto &amp;Align Clips</source>
         <translation>&amp;Автовирівнювання кліпів</translation>
+    </message>
+    <message>
+        <source>&amp;Export Project Archive…</source>
+        <translation>&amp;Експортувати архів проєкту…</translation>
+    </message>
+    <message>
+        <source>&amp;Restore Project Archive…</source>
+        <translation>&amp;Відновити архів проєкту…</translation>
+    </message>
+    <message>
+        <source>&amp;Bounce Mix to Track</source>
+        <translation>&amp;Звести мікс у доріжку</translation>
+    </message>
+    <message>
+        <source>Bounce &amp;Selected Tracks</source>
+        <translation>Звести &amp;вибрані доріжки</translation>
     </message>
 </context>
 <context>

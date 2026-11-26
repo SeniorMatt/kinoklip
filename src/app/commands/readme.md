@@ -15,6 +15,7 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `Command.h/.cpp` | `CommandSpec` / `ParamSpec` (name, type, description, required, default, choices), `CommandArgs` (typed access, `time()` through the timecode helpers), `CommandResult`, `CommandRegistry` (`builtin()`, `describe*()`, `execute()`). `execute()` is the one entry: checks arguments, loads the project (`ProjectUse`), selects `--timeline`, runs the handler, saves when the command modifies. Adds the universal parameters `project`, `output`, `timeline`, `force` |
 | `CommandSupport.h/.cpp` | track names (V1, A2), JSON of clips and timelines, id lists, time reading, frame-rate rationals |
 | `ProjectCommands.cpp` | `version`, `project.new`, `project.info`, `project.save`, `session.info` |
+| `ProjectCommands.cpp` (also) | `project.archive`, `project.restore-archive` (spec 175) through `pack/ProjectArchive.h` |
 | `MediaCommands.cpp` | `media.import`, `media.list`, `media.relink` |
 | `TimelineCommands.cpp` | `timeline.list`, `timeline.new`, `timeline.select`, `timeline.convert-rate` |
 | `ClipCommands.cpp` | `clip.list`, `clip.add`, `clip.move`, `clip.trim`, `clip.split`, `clip.delete`, `clip.set` |
@@ -27,7 +28,7 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `ClipEffectCommands.cpp` | `effect.add`, `effect.stack`, `effect.set`, `effect.remove`, `effect.enable`: the effects of a clip, added with `effectactions::applyEffect()` (the Effects library's function) |
 | `GeneratorCommands.cpp` | `generator.add`, `title.add`, `title.set`, `title.layer_list/add/remove/move/set` (spec 68): generated and title clips, made and placed with `effectactions::makeGeneratorClip()` / `addGeneratorClip()` |
 | `KeyframeCommands.cpp` | `keyframe.set`, `keyframe.list`, `keyframe.delete` through `paramaccess` and `keyframeops` (the Inspector's code) |
-| `TrackCommands.cpp` | `track.list`, `track.add`, `track.set` |
+| `TrackCommands.cpp` | `track.list`, `track.add`, `track.set`, `track.bounce` (spec 176) |
 | `ParamSupport.h/.cpp` | `key=value` settings checked against a `ParamDescriptor` (range, choices, colour, file) and written through `paramaccess`; finding a clip parameter by key |
 | `ExportCommands.cpp` | `export.otio`, `export.edl`, `import.otio`, `render` (uses `export/RenderCommand.h` `renderProject()`) |
 | `PluginCommands.cpp` | `plugin.list`, `plugin.info`, `plugin.create`, `plugin.copy_builtin`, `plugin.validate`, `plugin.install`, `plugin.uninstall`, `plugin.enable`, `plugin.disable`, `plugin.reload`, `plugin.pack`, `plugin.render_preview` (docs/plugins): they need no project and work on `plugins::PluginRegistry`; `executeLiveBatch()` runs a preset recipe as one undo step |
