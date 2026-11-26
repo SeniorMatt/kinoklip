@@ -351,9 +351,20 @@ QWidget* RenderSettingsPanel::buildVideoTab()
         m_encoder->addItem(encoderBackendName(b), int(b));
     }
     m_encoder->setToolTip(
-        tr("Hardware encoders are detected when the Deliver page opens. If the chosen one "
-           "fails, the render falls back to the software encoder."));
+        tr("Hardware encoders are tested when the first render starts, or when you press "
+           "Test Hardware Encoders. If the chosen one fails, the render falls back to the "
+           "software encoder."));
     m_videoForm->addRow(tr("Encoder"), m_encoder);
+    m_hwTest = new QPushButton(tr("Test Hardware Encoders"));
+    m_hwTest->setObjectName(QStringLiteral("RenderTestHardware"));
+    m_hwTest->setToolTip(tr("Tries every hardware encoder again in a separate process, so a "
+                            "faulty graphics driver cannot take Kinoklip down."));
+    connect(m_hwTest, &QPushButton::clicked, this, &RenderSettingsPanel::testHardwareRequested);
+    m_videoForm->addRow(QString(), m_hwTest);
+    m_hwNote = new QLabel;
+    m_hwNote->setObjectName(QStringLiteral("RenderHardwareNote"));
+    m_hwNote->setWordWrap(true);
+    m_videoForm->addRow(QString(), m_hwNote);
     m_profile = new QComboBox;
     m_profile->setObjectName(QStringLiteral("RenderProfile"));
     m_videoForm->addRow(tr("Encoding profile"), m_profile);
@@ -978,7 +989,10 @@ void RenderSettingsPanel::updateVisibility()
     const bool interFrame = videoOn && codec && codec->hasBitrate; // h264/hevc/av1/vp9
     m_videoForm->setRowVisible(m_videoEnabled, movie);
     m_videoForm->setRowVisible(m_codec, video);
-    m_videoForm->setRowVisible(m_encoder, videoOn && hasHardwareEncoders(s.video.codec));
+    const bool hwRow = videoOn && hasHardwareEncoders(s.video.codec);
+    m_videoForm->setRowVisible(m_encoder, hwRow);
+    m_videoForm->setRowVisible(m_hwTest, hwRow);
+    m_videoForm->setRowVisible(m_hwNote, hwRow && !m_hwNote->text().isEmpty());
     m_videoForm->setRowVisible(m_profile, videoOn && codec && codec->id != QLatin1String("gif"));
     m_profile->setEnabled(codec && !codec->profiles.isEmpty());
     m_profile->setToolTip(m_profile->isEnabled()
@@ -1124,13 +1138,31 @@ void RenderSettingsPanel::setHardwareStatus(const QList<HwEncoderStatus>& status
 {
     m_hwStatus = status;
     QStringList available;
+    QStringList faults; ///< the driver crashed or hung while testing
     for (const HwEncoderStatus& hw : status) {
         if (hw.available)
             available << hw.encoderName;
+        else if (hw.probeFailed && faults.isEmpty())
+            faults << tr("The driver crashed while testing %1; hardware encoding is off for "
+                         "this driver and the software encoder is used. Press Test Hardware "
+                         "Encoders to try again.")
+                          .arg(hw.encoderName);
     }
     m_encoder->setToolTip(available.isEmpty()
             ? tr("No hardware encoder was found; software encoders are used.")
             : tr("Hardware encoders found: %1").arg(available.join(QStringLiteral(", "))));
+    m_hwNote->setText(faults.value(0));
+    m_hwTesting = false;
+    m_hwTest->setEnabled(true);
+    updateVisibility();
+}
+
+void RenderSettingsPanel::setHardwareTesting(bool testing)
+{
+    m_hwTesting = testing;
+    m_hwTest->setEnabled(!testing);
+    if (testing)
+        m_hwNote->setText(tr("Testing hardware encoders..."));
     updateVisibility();
 }
 

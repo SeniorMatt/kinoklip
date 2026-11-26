@@ -65,6 +65,8 @@ public:
 
     /// Detected hardware encoders: annotates the Encoder combo ("not available" entries).
     void setHardwareStatus(const QList<HwEncoderStatus>& status);
+    /// The test runs (the button waits) or is over.
+    void setHardwareTesting(bool testing);
     /// Default output folder and base name (e.g. after a project was opened).
     void setDefaultOutput(const QString& folder, const QString& baseName);
 
@@ -80,6 +82,8 @@ public:
     [[nodiscard]] static int qualityValue(const QString& codecId, QualityLevel level);
 
 Q_SIGNALS:
+    /// The user pressed "Test Hardware Encoders" (test again, whatever was remembered).
+    void testHardwareRequested();
     /// The user pressed "Add to Render Queue".
     void addToQueueRequested();
     /// The user pressed "Update Job" while editing a job.
@@ -111,6 +115,9 @@ private:
     QString m_presetId;
     bool m_updating = false;
     QList<HwEncoderStatus> m_hwStatus;
+    QPushButton* m_hwTest = nullptr;
+    QLabel* m_hwNote = nullptr; ///< hardware encoder state: not tested, testing, a failure reason
+    bool m_hwTesting = false;
 
     RenderPresetRow* m_presetRow = nullptr;
     QLabel* m_presetName = nullptr;

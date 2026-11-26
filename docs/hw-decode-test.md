@@ -139,7 +139,7 @@ KK_PLAYBACK_STATS=1 KK_SCREENSHOT_PLAY_MS=5000 ./Kinoklip-x86_64.run --screensho
 | `KINOKLIP_X11_EGL=1` | X11: ask Qt for an EGL context (needed for zero-copy; Wayland always has one) |
 | `KINOKLIP_SW_THREADS=<n>` | software decoding threads (default: 4, 3/4 of the cores above 1080p) |
 | `KINOKLIP_VAAPI_COPY=transfer` | VAAPI download through `av_hwframe_transfer_data` (old path) |
-| `KINOKLIP_HWENC=off` | no hardware encoders for export |
+| `KINOKLIP_HWENC=off` | no hardware encoders for export (`KINOKLIP_HWACCEL=off` also means no hardware encoder is tested or used) |
 | `QT_LOGGING_RULES="kk.media.debug=true"` | verbose media log (also `kk.export.debug`, `kk.playback.debug`) |
 | `QT_FORCE_STDERR_LOGGING=1` | (Qt) always log to stderr, never to the journal |
 | `LIBVA_DRIVER_NAME=iHD` | (libva) force the iHD driver; leave unset normally |

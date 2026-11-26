@@ -5,6 +5,7 @@
 #include "export/ExportFFmpeg.h"
 #include "media/HwAccel.h"
 
+#include <QTemporaryDir>
 #include <QTest>
 
 #include <mutex>
@@ -71,6 +72,11 @@ private Q_SLOTS:
     void probingIsQuiet()
     {
         qunsetenv("KINOKLIP_HWENC");
+        qunsetenv("KINOKLIP_HWACCEL");
+        QTemporaryDir cacheDir;
+        EncoderCatalog::setProbeProgram(QString::fromUtf8(KK_HWENC_PROBE_PATH));
+        EncoderCatalog::setCacheFile(cacheDir.filePath(QStringLiteral("hwenc.json")));
+        EncoderCatalog::retest();
         g_previous = qInstallMessageHandler(handler);
         const QList<HwEncoderStatus> all = EncoderCatalog::hardwareEncoders();
         (void)EncoderCatalog::hardwareEncoders(); // cached: no second summary

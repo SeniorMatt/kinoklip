@@ -131,7 +131,7 @@ private:
     /// Timeline format the Render Settings labels show ("Match timeline (W x H)", "N fps").
     QString m_shownFormat;
     QTimer m_previewPoll;
-    bool m_hwDetectionStarted = false;
+    bool m_hwTesting = false;
     quint64 m_editingJob = 0; ///< editJob(): the job whose settings are shown
     ExportSettings m_settingsBeforeEdit; ///< restored by cancelEdit()
     /// Advanced Settings "use proxy / optimized media" of each job, for editJob().
