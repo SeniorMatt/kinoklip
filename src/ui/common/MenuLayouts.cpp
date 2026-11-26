@@ -243,6 +243,7 @@ Menu viewMenu()
             C("settings.layout_load", "Load Layout Preset"),
             C("settings.layout_delete", "Delete Layout Preset"),
         }),
+        S(),
         M("Look", {
             C("settings.color_scheme", "Colour Scheme"),
             C("settings.style", "Widget Style"),
