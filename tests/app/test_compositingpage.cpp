@@ -1755,7 +1755,9 @@ private slots:
         button("CompDiskCache")->click();
         QVERIFY(CompViewOptions::instance().options().diskCache);
         f.project.timeline()->setPlayhead(25);
-        QTRY_VERIFY_WITH_TIMEOUT(v->cacheMisses() > 0, 10000);
+        // cacheMisses() describes only the viewer's latest render: a repeat render of the same state
+        // (queued while the first one ran) finds the picture already stored and reports 0 misses, so
+        // a fast machine can skip past the miss. A stored file is the lasting proof of the miss.
         QTRY_VERIFY_WITH_TIMEOUT(viewercache::usage().files > 0, 10000);
         QTRY_VERIFY_WITH_TIMEOUT(!f.page()->viewer(0)->lastRenderSize().isEmpty(), 10000);
         f.project.timeline()->setPlayhead(26);
