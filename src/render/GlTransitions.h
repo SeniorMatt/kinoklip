@@ -68,6 +68,8 @@ void appendFusionTransitions(std::vector<GlTransitionFactory>& out); ///< GlFusi
 void appendFusionMotionTransitions(
     std::vector<GlTransitionFactory>& out); ///< GlFusionMotionTransitions.cpp
 
+void appendDctlTransition(std::vector<GlTransitionFactory>& out); ///< GlDctl.cpp
+
 /// Unit vector (x right, y down) of a direction choice "left"/"right"/"up"/"down": the way the
 /// incoming picture's edge travels. Unknown → left.
 [[nodiscard]] QPointF directionVector(const QString& direction);

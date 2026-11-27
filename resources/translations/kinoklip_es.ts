@@ -2201,6 +2201,22 @@ Probablemente el sistema cerró el programa porque el equipo se quedó sin memor
         <source>Plugins</source>
         <translation>Complementos</translation>
     </message>
+    <message>
+        <source>Method</source>
+        <translation>Método</translation>
+    </message>
+    <message>
+        <source>Bradford</source>
+        <translation>Bradford</translation>
+    </message>
+    <message>
+        <source>CAT02</source>
+        <translation>CAT02</translation>
+    </message>
+    <message>
+        <source>Von Kries</source>
+        <translation>Von Kries</translation>
+    </message>
 </context>
 <context>
     <name>kk::ActionDescriptions</name>
@@ -6821,6 +6837,10 @@ Gracias por ver</translation>
         <translation>Sentido horario</translation>
     </message>
     <message>
+        <source>Color Parameter %1</source>
+        <translation>Parámetro de color %1</translation>
+    </message>
+    <message>
         <source>Crash Zoom</source>
         <translation>Zoom brusco</translation>
     </message>
@@ -6839,6 +6859,14 @@ Gracias por ver</translation>
     <message>
         <source>Custom Curve</source>
         <translation>Curva personalizada</translation>
+    </message>
+    <message>
+        <source>DCTL File</source>
+        <translation>Archivo DCTL</translation>
+    </message>
+    <message>
+        <source>DCTL Transition</source>
+        <translation>Transición DCTL</translation>
     </message>
     <message>
         <source>Diamond Iris</source>
@@ -7041,6 +7069,10 @@ Gracias por ver</translation>
         <translation>Pintar encima</translation>
     </message>
     <message>
+        <source>Parameter %1 (from default)</source>
+        <translation>Parámetro %1 (cambio sobre el valor por defecto)</translation>
+    </message>
+    <message>
         <source>Pentagon Iris</source>
         <translation>Iris de pentágono</translation>
     </message>
@@ -7107,6 +7139,10 @@ Gracias por ver</translation>
     <message>
         <source>Round and Down</source>
         <translation>Giro hacia abajo</translation>
+    </message>
+    <message>
+        <source>Runs a DaVinci CTL file (.dctl) with a transition() function between the two clips. The sliders of the file are the parameters below, each as a change from the default set in the file</source>
+        <translation>Ejecuta un archivo DaVinci CTL (.dctl) con una función transition() entre los dos clips. Los deslizadores del archivo son los parámetros de abajo, cada uno como un cambio sobre el valor por defecto fijado en el archivo</translation>
     </message>
     <message>
         <source>Shadow Blend</source>
@@ -7372,6 +7408,26 @@ Gracias por ver</translation>
         <translation>Un mosaico de videollamada: la imagen en un marco redondeado sobre fondo oscuro, con una etiqueta de nombre, una marca de micrófono, barras de conexión, un temporizador de llamada y un anillo que se ilumina cuando la persona habla</translation>
     </message>
     <message>
+        <source>ACES 1.1</source>
+        <translation>ACES 1.1</translation>
+    </message>
+    <message>
+        <source>ACES 1.2</source>
+        <translation>ACES 1.2</translation>
+    </message>
+    <message>
+        <source>ACES 1.3</source>
+        <translation>ACES 1.3</translation>
+    </message>
+    <message>
+        <source>ACES Transform</source>
+        <translation>Transformación ACES</translation>
+    </message>
+    <message>
+        <source>ACES Version</source>
+        <translation>Versión de ACES</translation>
+    </message>
+    <message>
         <source>AF-C</source>
         <translation>AF-C</translation>
     </message>
@@ -7450,6 +7506,14 @@ Gracias por ver</translation>
     <message>
         <source>Apply</source>
         <translation>Aplicar</translation>
+    </message>
+    <message>
+        <source>Apply Forward OOTF</source>
+        <translation>Aplicar OOTF directa</translation>
+    </message>
+    <message>
+        <source>Apply Inverse OOTF</source>
+        <translation>Aplicar OOTF inversa</translation>
     </message>
     <message>
         <source>Apply LUT</source>
@@ -7636,6 +7700,10 @@ Gracias por ver</translation>
         <translation>Desenfoque de caja</translation>
     </message>
     <message>
+        <source>Bradford</source>
+        <translation>Bradford</translation>
+    </message>
+    <message>
         <source>Bright Only</source>
         <translation>Solo brillantes</translation>
     </message>
@@ -7676,6 +7744,10 @@ Gracias por ver</translation>
         <translation>Recupera el detalle oculto en sombras profundas y altas luces brillantes</translation>
     </message>
     <message>
+        <source>Brings colors that lie outside a smaller gamut back inside it, softly, and keeps the picture in its own color space</source>
+        <translation>Devuelve suavemente al interior de una gama menor los colores que quedan fuera de ella y mantiene la imagen en su propio espacio de color</translation>
+    </message>
+    <message>
         <source>Brush Size</source>
         <translation>Tamaño del pincel</translation>
     </message>
@@ -7686,6 +7758,10 @@ Gracias por ver</translation>
     <message>
         <source>Bulge / Pinch</source>
         <translation>Abultar / Pellizcar</translation>
+    </message>
+    <message>
+        <source>CAT02</source>
+        <translation>CAT02</translation>
     </message>
     <message>
         <source>CCTV</source>
@@ -7740,6 +7816,10 @@ Gracias por ver</translation>
         <translation>Corrección de aberración cromática</translation>
     </message>
     <message>
+        <source>Chromatic Adaptation</source>
+        <translation>Adaptación cromática</translation>
+    </message>
+    <message>
         <source>Circle Dots</source>
         <translation>Puntos circulares</translation>
     </message>
@@ -7788,8 +7868,24 @@ Gracias por ver</translation>
         <translation>Sangrado de color</translation>
     </message>
     <message>
+        <source>Color Compressor</source>
+        <translation>Compresor de color</translation>
+    </message>
+    <message>
         <source>Color Palette</source>
         <translation>Paleta de colores</translation>
+    </message>
+    <message>
+        <source>Color Parameter %1</source>
+        <translation>Parámetro de color %1</translation>
+    </message>
+    <message>
+        <source>Color Space</source>
+        <translation>Espacio de color</translation>
+    </message>
+    <message>
+        <source>Color Space Transform</source>
+        <translation>Transformación del espacio de color</translation>
     </message>
     <message>
         <source>Color Split</source>
@@ -7816,6 +7912,10 @@ Gracias por ver</translation>
         <translation>Barra de brújula</translation>
     </message>
     <message>
+        <source>Compression Limit</source>
+        <translation>Límite de compresión</translation>
+    </message>
+    <message>
         <source>Connection Bars</source>
         <translation>Barras de conexión</translation>
     </message>
@@ -7826,6 +7926,10 @@ Gracias por ver</translation>
     <message>
         <source>Contrast Pop</source>
         <translation>Realce de contraste</translation>
+    </message>
+    <message>
+        <source>Converts the picture from one color space and gamma to another, with tone mapping and gamut mapping for the step from HDR or wide gamut to a smaller display</source>
+        <translation>Convierte la imagen de un espacio de color y gamma a otros, con mapeo de tonos y de gama para el paso de HDR o gama amplia a una pantalla menor</translation>
     </message>
     <message>
         <source>Corner Marks</source>
@@ -7880,12 +7984,24 @@ Gracias por ver</translation>
         <translation>DCI-P3 D65</translation>
     </message>
     <message>
+        <source>DCTL</source>
+        <translation>DCTL</translation>
+    </message>
+    <message>
+        <source>DCTL File</source>
+        <translation>Archivo DCTL</translation>
+    </message>
+    <message>
         <source>DSLR</source>
         <translation>DSLR</translation>
     </message>
     <message>
         <source>DVE</source>
         <translation>DVE</translation>
+    </message>
+    <message>
+        <source>DaVinci</source>
+        <translation>DaVinci</translation>
     </message>
     <message>
         <source>Dark Only</source>
@@ -8284,6 +8400,10 @@ Gracias por ver</translation>
         <translation>Limitador de gamut</translation>
     </message>
     <message>
+        <source>Gamut Mapping</source>
+        <translation>Mapeo de gama</translation>
+    </message>
+    <message>
         <source>Gap</source>
         <translation>Hueco</translation>
     </message>
@@ -8408,6 +8528,10 @@ Gracias por ver</translation>
         <translation>Alto</translation>
     </message>
     <message>
+        <source>Highlight Limit</source>
+        <translation>Límite de luces</translation>
+    </message>
+    <message>
         <source>Highlight Protection</source>
         <translation>Protección de altas luces</translation>
     </message>
@@ -8472,6 +8596,18 @@ Gracias por ver</translation>
         <translation>Negro de entrada</translation>
     </message>
     <message>
+        <source>Input Color Space</source>
+        <translation>Espacio de color de entrada</translation>
+    </message>
+    <message>
+        <source>Input Gamma</source>
+        <translation>Gamma de entrada</translation>
+    </message>
+    <message>
+        <source>Input Transform</source>
+        <translation>Transformación de entrada</translation>
+    </message>
+    <message>
         <source>Input White</source>
         <translation>Blanco de entrada</translation>
     </message>
@@ -8490,6 +8626,10 @@ Gracias por ver</translation>
     <message>
         <source>Invert</source>
         <translation>Invertir</translation>
+    </message>
+    <message>
+        <source>Invert Output Transform</source>
+        <translation>Invertir la transformación de salida</translation>
     </message>
     <message>
         <source>JPEG Damage</source>
@@ -8636,6 +8776,10 @@ Gracias por ver</translation>
         <translation>Luminancia baja</translation>
     </message>
     <message>
+        <source>Luminance Mapping</source>
+        <translation>Mapeo de luminancia</translation>
+    </message>
+    <message>
         <source>Luminance Softness</source>
         <translation>Suavidad de luminancia</translation>
     </message>
@@ -8658,6 +8802,10 @@ Gracias por ver</translation>
     <message>
         <source>Makes the fine texture of surfaces stand out, without touching the large tones</source>
         <translation>Hace resaltar la textura fina de las superficies sin tocar los tonos amplios</translation>
+    </message>
+    <message>
+        <source>Mapping Mode</source>
+        <translation>Modo de mapeo</translation>
     </message>
     <message>
         <source>Maps the shadows to one color and the highlights to another</source>
@@ -8686,6 +8834,14 @@ Gracias por ver</translation>
     <message>
         <source>Matte Only</source>
         <translation>Solo matte</translation>
+    </message>
+    <message>
+        <source>Max Input Luminance</source>
+        <translation>Luminancia máx. de entrada</translation>
+    </message>
+    <message>
+        <source>Max Output Luminance</source>
+        <translation>Luminancia máx. de salida</translation>
     </message>
     <message>
         <source>Maximum</source>
@@ -8764,6 +8920,14 @@ Gracias por ver</translation>
         <translation>Mueve libremente las cuatro esquinas (perspectiva): desplazamientos respecto a las esquinas del clip</translation>
     </message>
     <message>
+        <source>Moves the picture into ACES with an input transform, or out of it with an output transform (reference rendering and display)</source>
+        <translation>Lleva la imagen a ACES con una transformación de entrada, o fuera de ACES con una de salida (renderizado de referencia y pantalla)</translation>
+    </message>
+    <message>
+        <source>Moves the white point of the picture from one illuminant to another, like a white balance in XYZ</source>
+        <translation>Mueve el punto blanco de la imagen de un iluminante a otro, como un balance de blancos en XYZ</translation>
+    </message>
+    <message>
         <source>Moves, scales and rotates the picture, as an effect that can sit anywhere in the stack</source>
         <translation>Mueve, escala y rota la imagen, como un efecto que puede ir en cualquier lugar de la pila</translation>
     </message>
@@ -8794,6 +8958,10 @@ Gracias por ver</translation>
     <message>
         <source>Noise Reduction</source>
         <translation>Reducción de ruido</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Ninguno</translation>
     </message>
     <message>
         <source>Normal</source>
@@ -8840,6 +9008,18 @@ Gracias por ver</translation>
         <translation>Negro de salida</translation>
     </message>
     <message>
+        <source>Output Color Space</source>
+        <translation>Espacio de color de salida</translation>
+    </message>
+    <message>
+        <source>Output Gamma</source>
+        <translation>Gamma de salida</translation>
+    </message>
+    <message>
+        <source>Output Transform</source>
+        <translation>Transformación de salida</translation>
+    </message>
+    <message>
         <source>Output White</source>
         <translation>Blanco de salida</translation>
     </message>
@@ -8882,6 +9062,10 @@ Gracias por ver</translation>
     <message>
         <source>Paper Texture</source>
         <translation>Textura de papel</translation>
+    </message>
+    <message>
+        <source>Parameter %1 (from default)</source>
+        <translation>Parámetro %1 (cambio sobre el valor por defecto)</translation>
     </message>
     <message>
         <source>Patch Replacer</source>
@@ -8950,6 +9134,10 @@ Gracias por ver</translation>
     <message>
         <source>Posterize</source>
         <translation>Posterizar</translation>
+    </message>
+    <message>
+        <source>Power</source>
+        <translation>Potencia</translation>
     </message>
     <message>
         <source>Preview (fast)</source>
@@ -9188,6 +9376,10 @@ Gracias por ver</translation>
         <translation>Regla de los tercios</translation>
     </message>
     <message>
+        <source>Runs a DaVinci CTL file (.dctl) on the picture. The sliders of the file are the parameters below, in the order of the file, each as a change from the default set in the file</source>
+        <translation>Ejecuta un archivo DaVinci CTL (.dctl) sobre la imagen. Los deslizadores del archivo son los parámetros de abajo, en el orden del archivo, cada uno como un cambio sobre el valor por defecto fijado en el archivo</translation>
+    </message>
+    <message>
         <source>Satellites</source>
         <translation>Satélites</translation>
     </message>
@@ -9200,16 +9392,32 @@ Gracias por ver</translation>
         <translation>Saturación</translation>
     </message>
     <message>
+        <source>Saturation Compression</source>
+        <translation>Compresión de saturación</translation>
+    </message>
+    <message>
         <source>Saturation High</source>
         <translation>Saturación alta</translation>
+    </message>
+    <message>
+        <source>Saturation Limit</source>
+        <translation>Límite de saturación</translation>
     </message>
     <message>
         <source>Saturation Low</source>
         <translation>Saturación baja</translation>
     </message>
     <message>
+        <source>Saturation Mapping</source>
+        <translation>Mapeo de saturación</translation>
+    </message>
+    <message>
         <source>Saturation Softness</source>
         <translation>Suavidad de saturación</translation>
+    </message>
+    <message>
+        <source>Saturation Threshold</source>
+        <translation>Umbral de saturación</translation>
     </message>
     <message>
         <source>Scale</source>
@@ -9308,6 +9516,10 @@ Gracias por ver</translation>
         <translation>Velocidad de obturación</translation>
     </message>
     <message>
+        <source>Simple</source>
+        <translation>Simple</translation>
+    </message>
+    <message>
         <source>Size</source>
         <translation>Tamaño</translation>
     </message>
@@ -9358,6 +9570,18 @@ Gracias por ver</translation>
     <message>
         <source>Softness</source>
         <translation>Suavidad</translation>
+    </message>
+    <message>
+        <source>Source White Point</source>
+        <translation>Punto blanco de origen</translation>
+    </message>
+    <message>
+        <source>Source White x</source>
+        <translation>Blanco de origen x</translation>
+    </message>
+    <message>
+        <source>Source White y</source>
+        <translation>Blanco de origen y</translation>
     </message>
     <message>
         <source>Source X</source>
@@ -9414,6 +9638,10 @@ Gracias por ver</translation>
     <message>
         <source>Square Pinch</source>
         <translation>Pellizco cuadrado</translation>
+    </message>
+    <message>
+        <source>Squeezes values that are too bright and colors that are too saturated into the range, softly instead of clipping them</source>
+        <translation>Comprime suavemente en el rango los valores demasiado brillantes y los colores demasiado saturados, en lugar de recortarlos</translation>
     </message>
     <message>
         <source>Starburst spikes from the bright lights of the picture, like a stopped-down lens</source>
@@ -9474,6 +9702,22 @@ Gracias por ver</translation>
     <message>
         <source>Takes the fog or haze out of the picture, from the darkest colors of each area</source>
         <translation>Quita la niebla o bruma de la imagen, a partir de los colores más oscuros de cada área</translation>
+    </message>
+    <message>
+        <source>Target Color Space</source>
+        <translation>Espacio de color de destino</translation>
+    </message>
+    <message>
+        <source>Target White Point</source>
+        <translation>Punto blanco de destino</translation>
+    </message>
+    <message>
+        <source>Target White x</source>
+        <translation>Blanco de destino x</translation>
+    </message>
+    <message>
+        <source>Target White y</source>
+        <translation>Blanco de destino y</translation>
     </message>
     <message>
         <source>Target X</source>
@@ -9584,6 +9828,10 @@ Gracias por ver</translation>
         <translation>Tolerancia</translation>
     </message>
     <message>
+        <source>Tone Mapping</source>
+        <translation>Mapeo de tonos</translation>
+    </message>
+    <message>
         <source>Tone curves: a master curve and one per red, green and blue channel</source>
         <translation>Curvas de tono: una curva maestra y una por cada canal rojo, verde y azul</translation>
     </message>
@@ -9692,6 +9940,10 @@ Gracias por ver</translation>
         <translation>Usar color 3</translation>
     </message>
     <message>
+        <source>Use White Point Adaptation</source>
+        <translation>Usar adaptación del punto blanco</translation>
+    </message>
+    <message>
         <source>Vertical Bow</source>
         <translation>Curvado vertical</translation>
     </message>
@@ -9718,6 +9970,10 @@ Gracias por ver</translation>
     <message>
         <source>Vignette</source>
         <translation>Viñeta</translation>
+    </message>
+    <message>
+        <source>Von Kries</source>
+        <translation>Von Kries</translation>
     </message>
     <message>
         <source>Warmer / cooler (blue - orange) and green - magenta white balance</source>
@@ -9774,6 +10030,158 @@ Gracias por ver</translation>
     <message>
         <source>Zoom Blur</source>
         <translation>Desenfoque de zoom</translation>
+    </message>
+    <message>
+        <source>Rec.709 / sRGB</source>
+        <translation>Rec.709 / sRGB</translation>
+    </message>
+    <message>
+        <source>Rec.2020</source>
+        <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>P3-D65</source>
+        <translation>P3-D65</translation>
+    </message>
+    <message>
+        <source>P3-DCI</source>
+        <translation>P3-DCI</translation>
+    </message>
+    <message>
+        <source>P3-D60</source>
+        <translation>P3-D60</translation>
+    </message>
+    <message>
+        <source>ACES AP0 (ACES2065-1)</source>
+        <translation>ACES AP0 (ACES2065-1)</translation>
+    </message>
+    <message>
+        <source>ACES AP1 (ACEScg)</source>
+        <translation>ACES AP1 (ACEScg)</translation>
+    </message>
+    <message>
+        <source>Adobe RGB</source>
+        <translation>Adobe RGB</translation>
+    </message>
+    <message>
+        <source>DaVinci Wide Gamut</source>
+        <translation>DaVinci Wide Gamut</translation>
+    </message>
+    <message>
+        <source>ARRI Wide Gamut 3</source>
+        <translation>ARRI Wide Gamut 3</translation>
+    </message>
+    <message>
+        <source>Sony S-Gamut3</source>
+        <translation>Sony S-Gamut3</translation>
+    </message>
+    <message>
+        <source>Sony S-Gamut3.Cine</source>
+        <translation>Sony S-Gamut3.Cine</translation>
+    </message>
+    <message>
+        <source>Panasonic V-Gamut</source>
+        <translation>Panasonic V-Gamut</translation>
+    </message>
+    <message>
+        <source>REDWideGamutRGB</source>
+        <translation>REDWideGamutRGB</translation>
+    </message>
+    <message>
+        <source>Linear</source>
+        <translation>Lineal</translation>
+    </message>
+    <message>
+        <source>Gamma 2.2</source>
+        <translation>Gamma 2.2</translation>
+    </message>
+    <message>
+        <source>Gamma 2.4</source>
+        <translation>Gamma 2.4</translation>
+    </message>
+    <message>
+        <source>Gamma 2.6</source>
+        <translation>Gamma 2.6</translation>
+    </message>
+    <message>
+        <source>sRGB</source>
+        <translation>sRGB</translation>
+    </message>
+    <message>
+        <source>Rec.709</source>
+        <translation>Rec.709</translation>
+    </message>
+    <message>
+        <source>ST2084 (PQ)</source>
+        <translation>ST2084 (PQ)</translation>
+    </message>
+    <message>
+        <source>HLG</source>
+        <translation>HLG</translation>
+    </message>
+    <message>
+        <source>ACEScc</source>
+        <translation>ACEScc</translation>
+    </message>
+    <message>
+        <source>ACEScct</source>
+        <translation>ACEScct</translation>
+    </message>
+    <message>
+        <source>DaVinci Intermediate</source>
+        <translation>DaVinci Intermediate</translation>
+    </message>
+    <message>
+        <source>ARRI LogC3</source>
+        <translation>ARRI LogC3</translation>
+    </message>
+    <message>
+        <source>Sony S-Log3</source>
+        <translation>Sony S-Log3</translation>
+    </message>
+    <message>
+        <source>Panasonic V-Log</source>
+        <translation>Panasonic V-Log</translation>
+    </message>
+    <message>
+        <source>RED Log3G10</source>
+        <translation>RED Log3G10</translation>
+    </message>
+    <message>
+        <source>D50</source>
+        <translation>D50</translation>
+    </message>
+    <message>
+        <source>D55</source>
+        <translation>D55</translation>
+    </message>
+    <message>
+        <source>D60 (ACES)</source>
+        <translation>D60 (ACES)</translation>
+    </message>
+    <message>
+        <source>D65</source>
+        <translation>D65</translation>
+    </message>
+    <message>
+        <source>DCI</source>
+        <translation>DCI</translation>
+    </message>
+    <message>
+        <source>D75</source>
+        <translation>D75</translation>
+    </message>
+    <message>
+        <source>Illuminant A (tungsten)</source>
+        <translation>Iluminante A (tungsteno)</translation>
+    </message>
+    <message>
+        <source>Equal energy (E)</source>
+        <translation>Energía igual (E)</translation>
+    </message>
+    <message>
+        <source>Custom (x, y)</source>
+        <translation>Personalizado (x, y)</translation>
     </message>
 </context>
 <context>
@@ -15701,6 +16109,26 @@ Gracias por ver</translation>
         <translation>Suavizado</translation>
     </message>
     <message>
+        <source>DCTL File</source>
+        <translation>Archivo DCTL</translation>
+    </message>
+    <message>
+        <source>Parameter %1 (from default)</source>
+        <translation>Parámetro %1 (cambio sobre el valor por defecto)</translation>
+    </message>
+    <message>
+        <source>Color Parameter %1</source>
+        <translation>Parámetro de color %1</translation>
+    </message>
+    <message>
+        <source>DCTL Transition</source>
+        <translation>Transición DCTL</translation>
+    </message>
+    <message>
+        <source>Runs a DaVinci CTL file (.dctl) with a transition() function between the two clips. The sliders of the file are the parameters below, each as a change from the default set in the file</source>
+        <translation>Ejecuta un archivo DaVinci CTL (.dctl) con una función transition() entre los dos clips. Los deslizadores del archivo son los parámetros de abajo, cada uno como un cambio sobre el valor por defecto fijado en el archivo</translation>
+    </message>
+    <message>
         <source>Custom</source>
         <translation>Personalizado</translation>
     </message>
@@ -18383,6 +18811,202 @@ Gracias por ver</translation>
     <message>
         <source>How long the tail takes to die away (to a thousandth of its loudness).</source>
         <translation>Cuánto tarda la cola en extinguirse (hasta una milésima de su volumen).</translation>
+    </message>
+    <message>
+        <source>Color Space Transform</source>
+        <translation>Transformación del espacio de color</translation>
+    </message>
+    <message>
+        <source>Converts the picture from one color space and gamma to another, with tone mapping and gamut mapping for the step from HDR or wide gamut to a smaller display</source>
+        <translation>Convierte la imagen de un espacio de color y gamma a otros, con mapeo de tonos y de gama para el paso de HDR o gama amplia a una pantalla menor</translation>
+    </message>
+    <message>
+        <source>Input Color Space</source>
+        <translation>Espacio de color de entrada</translation>
+    </message>
+    <message>
+        <source>Input Gamma</source>
+        <translation>Gamma de entrada</translation>
+    </message>
+    <message>
+        <source>Tone Mapping</source>
+        <translation>Mapeo de tonos</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Ninguno</translation>
+    </message>
+    <message>
+        <source>Simple</source>
+        <translation>Simple</translation>
+    </message>
+    <message>
+        <source>Luminance Mapping</source>
+        <translation>Mapeo de luminancia</translation>
+    </message>
+    <message>
+        <source>DaVinci</source>
+        <translation>DaVinci</translation>
+    </message>
+    <message>
+        <source>Output Color Space</source>
+        <translation>Espacio de color de salida</translation>
+    </message>
+    <message>
+        <source>Output Gamma</source>
+        <translation>Gamma de salida</translation>
+    </message>
+    <message>
+        <source>Gamut Mapping</source>
+        <translation>Mapeo de gama</translation>
+    </message>
+    <message>
+        <source>Saturation Mapping</source>
+        <translation>Mapeo de saturación</translation>
+    </message>
+    <message>
+        <source>Saturation Compression</source>
+        <translation>Compresión de saturación</translation>
+    </message>
+    <message>
+        <source>Apply Forward OOTF</source>
+        <translation>Aplicar OOTF directa</translation>
+    </message>
+    <message>
+        <source>Apply Inverse OOTF</source>
+        <translation>Aplicar OOTF inversa</translation>
+    </message>
+    <message>
+        <source>Use White Point Adaptation</source>
+        <translation>Usar adaptación del punto blanco</translation>
+    </message>
+    <message>
+        <source>Max Input Luminance</source>
+        <translation>Luminancia máx. de entrada</translation>
+    </message>
+    <message>
+        <source>Max Output Luminance</source>
+        <translation>Luminancia máx. de salida</translation>
+    </message>
+    <message>
+        <source>ACES Transform</source>
+        <translation>Transformación ACES</translation>
+    </message>
+    <message>
+        <source>Moves the picture into ACES with an input transform, or out of it with an output transform (reference rendering and display)</source>
+        <translation>Lleva la imagen a ACES con una transformación de entrada, o fuera de ACES con una de salida (renderizado de referencia y pantalla)</translation>
+    </message>
+    <message>
+        <source>ACES Version</source>
+        <translation>Versión de ACES</translation>
+    </message>
+    <message>
+        <source>ACES 1.1</source>
+        <translation>ACES 1.1</translation>
+    </message>
+    <message>
+        <source>ACES 1.2</source>
+        <translation>ACES 1.2</translation>
+    </message>
+    <message>
+        <source>ACES 1.3</source>
+        <translation>ACES 1.3</translation>
+    </message>
+    <message>
+        <source>Input Transform</source>
+        <translation>Transformación de entrada</translation>
+    </message>
+    <message>
+        <source>Output Transform</source>
+        <translation>Transformación de salida</translation>
+    </message>
+    <message>
+        <source>Invert Output Transform</source>
+        <translation>Invertir la transformación de salida</translation>
+    </message>
+    <message>
+        <source>Brings colors that lie outside a smaller gamut back inside it, softly, and keeps the picture in its own color space</source>
+        <translation>Devuelve suavemente al interior de una gama menor los colores que quedan fuera de ella y mantiene la imagen en su propio espacio de color</translation>
+    </message>
+    <message>
+        <source>Target Color Space</source>
+        <translation>Espacio de color de destino</translation>
+    </message>
+    <message>
+        <source>Mapping Mode</source>
+        <translation>Modo de mapeo</translation>
+    </message>
+    <message>
+        <source>Compression Limit</source>
+        <translation>Límite de compresión</translation>
+    </message>
+    <message>
+        <source>Power</source>
+        <translation>Potencia</translation>
+    </message>
+    <message>
+        <source>Chromatic Adaptation</source>
+        <translation>Adaptación cromática</translation>
+    </message>
+    <message>
+        <source>Moves the white point of the picture from one illuminant to another, like a white balance in XYZ</source>
+        <translation>Mueve el punto blanco de la imagen de un iluminante a otro, como un balance de blancos en XYZ</translation>
+    </message>
+    <message>
+        <source>Color Space</source>
+        <translation>Espacio de color</translation>
+    </message>
+    <message>
+        <source>Source White Point</source>
+        <translation>Punto blanco de origen</translation>
+    </message>
+    <message>
+        <source>Source White x</source>
+        <translation>Blanco de origen x</translation>
+    </message>
+    <message>
+        <source>Source White y</source>
+        <translation>Blanco de origen y</translation>
+    </message>
+    <message>
+        <source>Target White Point</source>
+        <translation>Punto blanco de destino</translation>
+    </message>
+    <message>
+        <source>Target White x</source>
+        <translation>Blanco de destino x</translation>
+    </message>
+    <message>
+        <source>Target White y</source>
+        <translation>Blanco de destino y</translation>
+    </message>
+    <message>
+        <source>Color Compressor</source>
+        <translation>Compresor de color</translation>
+    </message>
+    <message>
+        <source>Squeezes values that are too bright and colors that are too saturated into the range, softly instead of clipping them</source>
+        <translation>Comprime suavemente en el rango los valores demasiado brillantes y los colores demasiado saturados, en lugar de recortarlos</translation>
+    </message>
+    <message>
+        <source>Highlight Limit</source>
+        <translation>Límite de luces</translation>
+    </message>
+    <message>
+        <source>Saturation Threshold</source>
+        <translation>Umbral de saturación</translation>
+    </message>
+    <message>
+        <source>Saturation Limit</source>
+        <translation>Límite de saturación</translation>
+    </message>
+    <message>
+        <source>DCTL</source>
+        <translation>DCTL</translation>
+    </message>
+    <message>
+        <source>Runs a DaVinci CTL file (.dctl) on the picture. The sliders of the file are the parameters below, in the order of the file, each as a change from the default set in the file</source>
+        <translation>Ejecuta un archivo DaVinci CTL (.dctl) sobre la imagen. Los deslizadores del archivo son los parámetros de abajo, en el orden del archivo, cada uno como un cambio sobre el valor por defecto fijado en el archivo</translation>
     </message>
 </context>
 <context>

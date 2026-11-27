@@ -125,6 +125,9 @@ struct GlEffectFactory
 [[nodiscard]] std::span<const GlEffectFactory> timeGlEffects();
 /// 1.2 (spec 56): GlExtraColor.cpp, GlExtraEffects.cpp.
 [[nodiscard]] std::span<const GlEffectFactory> extraColorGlEffects();
+/// Colour management (spec 205): GlColorManagement.cpp.
+[[nodiscard]] std::span<const GlEffectFactory> colorManagementGlEffects();
+[[nodiscard]] std::span<const GlEffectFactory> dctlGlEffects(); ///< GlDctl.cpp
 [[nodiscard]] std::span<const GlEffectFactory> extraGlEffects();
 /// 1.2 second part (spec 57): GlDetailEffects.cpp, GlDamageEffects.cpp, GlPaintEffects.cpp,
 /// GlOpticsEffects.cpp, GlUtilityEffects.cpp.

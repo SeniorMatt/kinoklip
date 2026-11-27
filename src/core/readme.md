@@ -374,3 +374,5 @@ timeline header's (one state for the header and the mixer). Track automation doe
 ripple edits (it belongs to the timeline, not the clips; the clip level line keeps using the
 clip's `audio/volumeDb` keys).
 
+
+* **Colour science and DCTL** (spec 205 to 207): `ColorSpaces.h/.cpp` (gamuts from primaries, transfer curves, Bradford / CAT02 / von Kries, ACES RRT + ODT fit, tone and gamut mapping; no OpenColorIO), `DctlTranslator.h/.cpp` (.dctl to GLSL, no OpenGL needed), `BuiltinVideoEffects9.cpp` (the six effects), keys in `VideoEffectKeys9.h`.

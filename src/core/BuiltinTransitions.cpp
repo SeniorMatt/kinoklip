@@ -7,6 +7,7 @@
 #include "core/EffectBuilders.h"
 #include "core/EffectRegistry.h"
 #include "core/TransitionKeys.h"
+#include "core/VideoEffectKeys.h"
 
 #include <QCoreApplication>
 
@@ -363,6 +364,21 @@ void EffectRegistry::registerTransitions()
             number(k::Raggedness, tr("Raggedness"), 0, 100, 50, 1, kPercent),
             number(k::Glow, tr("Glow Brightness"), 0, 300, 100, 1, kPercent),
             number(k::Char, tr("Char"), 0, 100, 40, 1, kPercent)}));
+    {
+        Params params;
+        params << file(fxkeys::DctlFile, tr("DCTL File"), QStringLiteral("DCTL (*.dctl)"));
+        for (int i = 1; i <= 8; ++i)
+            params << number(fxkeys::dctlParam(i), tr("Parameter %1 (from default)").arg(i),
+                -1000, 1000, 0, 0.01);
+        for (int i = 1; i <= 2; ++i)
+            params << color(fxkeys::dctlColor(i), tr("Color Parameter %1").arg(i),
+                QColor(255, 255, 255));
+        add(transition(fxid::DctlTransition, tr("DCTL Transition"), ResolveFxTransitions,
+            tr("Runs a DaVinci CTL file (.dctl) with a transition() function between the two "
+               "clips. The sliders of the file are the parameters below, each as a change from "
+               "the default set in the file"),
+            params));
+    }
 }
 
 } // namespace kk
