@@ -228,7 +228,7 @@ bool drawTestPicture(Report* report)
             program.bind();
             gl->glDrawArrays(GL_TRIANGLES, 0, 3);
             gl->glFinish();
-            const QImage image = fbo.toImage(false); // read back from the card
+            const QImage image = fbo.toImage(true); // read back from the card, top row first
             fbo.release();
             vao.release();
             drawn = !image.isNull();

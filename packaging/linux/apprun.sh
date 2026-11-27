@@ -649,6 +649,12 @@ if [ "$BUNDLED_GLIBC" = 1 ]; then
     log "using the bundled glibc (host: ${_glibc_have:-forced}, bundle needs: ${_glibc_need:-forced})"
     LDSO="$LIB/glibc/$ARCH_LDSO_NAME"
     LDSO_PATH="$LIB/glibc${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    # Helper programs of the bundle (the plugin and encoder probes) are started through the same
+    # loader (src/core/HelperProcess.h): with the host's older glibc they could not load plugins
+    # built against the bundled one.
+    KINOKLIP_LDSO="$LDSO"
+    KINOKLIP_LDSO_PATH="$LDSO_PATH"
+    export KINOKLIP_LDSO KINOKLIP_LDSO_PATH
 else
     LDSO="$ARCH_LDSO_HOST"
 fi

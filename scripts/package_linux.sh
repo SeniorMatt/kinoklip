@@ -425,7 +425,9 @@ fi
 
 # Plugins (docs/plugins): the example plugins people copy from (plugin.copy_builtin, Install Folder)
 # and the folder bundled plugins load from (src/plugins/PluginRegistry.cpp: share/kinoklip/plugins).
+rm -rf "$APPDIR/usr/share/kinoklip/plugins"
 mkdir -p "$APPDIR/usr/share/kinoklip/plugins"
+cp -r "$ROOT/plugins/bundled/." "$APPDIR/usr/share/kinoklip/plugins/"
 rm -rf "$APPDIR/usr/share/kinoklip/plugin-examples"
 cp -r "$ROOT/plugins/examples" "$APPDIR/usr/share/kinoklip/plugin-examples"
 install -D -m 644 "$ROOT/docs/plugins/plugin.schema.json" "$APPDIR/usr/share/kinoklip/plugin.schema.json"

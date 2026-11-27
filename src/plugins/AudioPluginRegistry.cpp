@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // AudioPluginRegistry — see AudioPluginRegistry.h.
 #include "plugins/AudioPluginRegistry.h"
+#include "core/HelperProcess.h"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -322,7 +323,7 @@ audioplug::BundleInfo AudioPluginRegistry::probe(const QString& format, const QS
     result.close();
     QProcess process;
     process.setProcessChannelMode(QProcess::MergedChannels);
-    process.start(program, {format, path, result.fileName()});
+    kk::startHelperProcess(process, program, {format, path, result.fileName()});
     if (!process.waitForStarted(10000)) {
         *failure = QStringLiteral("the probe program could not be started");
         return none;

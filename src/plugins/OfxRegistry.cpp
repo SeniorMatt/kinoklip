@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // OfxRegistry — see OfxRegistry.h.
 #include "plugins/OfxRegistry.h"
+#include "core/HelperProcess.h"
 
 #include "core/Animation.h"
 #include "core/NodeRegistry.h"
@@ -439,7 +440,7 @@ ofx::BundleInfo OfxRegistry::probe(const QString& bundlePath, QString* failure) 
     QProcess process;
     process.setProcessChannelMode(QProcess::MergedChannels);
     // The plugin must not find the editor's settings or display: only its own files.
-    process.start(program, {bundlePath, result.fileName()});
+    kk::startHelperProcess(process, program, {bundlePath, result.fileName()});
     if (!process.waitForStarted(10000)) {
         *failure = QStringLiteral("the probe program could not be started");
         return none;

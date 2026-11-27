@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // EncoderCatalog — encoder tables and hardware encoder detection.
 #include "export/EncoderCatalog.h"
+#include "core/HelperProcess.h"
 
 #include "export/ExportFFmpeg.h"
 #include "export/ExportLog.h"
@@ -462,7 +463,7 @@ ProbeResult probe(Cache& c, const HwRow& row, bool* cacheable)
     ++c.probeRuns;
     auto* process = new QProcess; // leaked if it cannot be killed (stuck in the driver)
     process->setProcessChannelMode(QProcess::MergedChannels);
-    process->start(program, {name, out.fileName()});
+    kk::startHelperProcess(*process, program, {name, out.fileName()});
     if (!process->waitForStarted(10000)) {
         delete process;
         *cacheable = false;

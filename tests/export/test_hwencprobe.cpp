@@ -3,11 +3,14 @@
 // crashes, hangs or exits badly makes the encoder unavailable with a reason and is remembered on
 // disk for this GPU and driver; KINOKLIP_HWENC=off and KINOKLIP_HWACCEL=off probe nothing.
 #include "export/EncoderCatalog.h"
+#include "core/HelperProcess.h"
 
 #include <QElapsedTimer>
+#include <QDir>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -134,6 +137,35 @@ private Q_SLOTS:
         }
         if (!any)
             QSKIP("this machine has no hardware encoder candidate to test");
+    }
+
+    /// In an AppImage on its bundled glibc the probe is started through that loader
+    /// (KINOKLIP_LDSO, packaging/linux/apprun.sh), so plugins and libraries built for the bundled
+    /// glibc load in it. Here the system loader stands in for the bundled one.
+    void helperProgramsStartThroughTheBundledLoader()
+    {
+        if (!QFile::exists(QString::fromUtf8(KK_HWENC_PROBE_PATH)))
+            QSKIP("kinoklip-hwenc-probe is not built");
+        QString loader;
+        for (const char* path : {"/lib64/ld-linux-x86-64.so.2", "/lib/ld-linux-aarch64.so.1"}) {
+            if (QFile::exists(QString::fromLatin1(path)))
+                loader = QString::fromLatin1(path);
+        }
+        if (loader.isEmpty())
+            QSKIP("no system loader to stand in for the bundled one");
+        qputenv("KK_HWENC_PROBE_TEST", "exit");
+        qputenv("KINOKLIP_LDSO", loader.toLocal8Bit());
+        qputenv("KINOKLIP_LDSO_PATH", "");
+        QProcess process;
+        kk::startHelperProcess(process, QString::fromUtf8(KK_HWENC_PROBE_PATH),
+            {QStringLiteral("h264_vaapi"), QDir::temp().filePath(QStringLiteral("kk-loader-test.json"))});
+        qunsetenv("KINOKLIP_LDSO");
+        qunsetenv("KINOKLIP_LDSO_PATH");
+        QVERIFY(process.waitForStarted(10000));
+        QVERIFY(process.waitForFinished(20000));
+        QCOMPARE(process.program(), loader);
+        QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(process.exitCode(), 7); // the probe itself ran (its "exit" test mode)
     }
 
     /// A missing probe program: hardware is unavailable, the render uses software, nothing is

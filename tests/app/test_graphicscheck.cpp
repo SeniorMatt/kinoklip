@@ -87,6 +87,10 @@ private slots:
             QVERIFY2(report.text.contains(QLatin1String(text)), text);
         // The verdict follows the findings.
         QCOMPARE(report.ok, report.glContext && report.pictureCorrect);
+        // Any working OpenGL, software llvmpipe included, draws the test picture correctly: a drawn
+        // but wrong picture is a bug of the check (a flipped read-back), not of the driver.
+        if (report.pictureDrawn)
+            QVERIFY2(report.pictureCorrect, qPrintable(report.pictureProblem));
         if (report.ok) {
             QVERIFY(report.pictureDrawn);
             QVERIFY(!report.renderer.isEmpty());
