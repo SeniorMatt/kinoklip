@@ -137,7 +137,8 @@ private slots:
         panel.setFilterText(QStringLiteral("chroma"));
         QCOMPARE(panel.visibleDescriptorIds(),
             QStringList({QLatin1String(fxid::ChromaticAberrationFix),
-                QLatin1String(fxid::ChromaKey), QLatin1String(fxid::ChromaticAberration)}));
+                QLatin1String(fxid::ChromaticAdaptation), QLatin1String(fxid::ChromaKey),
+                QLatin1String(fxid::ChromaticAberration)}));
         QVERIFY(!key->isHidden());
         QVERIFY(video->child(0)->isHidden()); // Blur: nothing matches
         saveScreenshot(panel, QStringLiteral("effects_library_folders"));
