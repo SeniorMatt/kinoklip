@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 409 commands; sure 107, likely 122, unsure 180.
+Counts: 410 commands; sure 107, likely 122, unsure 181.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -104,6 +104,7 @@ that every command has an entry and that no key is used twice.
 | Swap Clip with Next | `trim.swap_right` | `Ctrl+Shift+.` | likely |  |
 | Move Clips Up a Track (video clips of the selection, else its audio) | `trim.move_up` | `Alt+Up` | unsure | Kinoklip binds Alt+Up / Alt+Down; Resolve's default for moving clips between tracks is not confirmed |
 | Move Clips Down a Track | `trim.move_down` | `Alt+Down` | unsure |  |
+| Trim Editor (the frames on both sides of the selected edit point, with trim buttons) | `trim.trim_editor` | (none) | unsure | Kinoklip's menu entry for Resolve's Trim Editor; no default key known |
 
 ## Timeline
 

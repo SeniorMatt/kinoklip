@@ -86,6 +86,7 @@ a("trim.swap_left", "Swap Clip with Previous", ["Ctrl+Shift+,"], L)
 a("trim.swap_right", "Swap Clip with Next", ["Ctrl+Shift+."], L)
 a("trim.move_up", "Move Clips Up a Track (video clips of the selection, else its audio)", ["Alt+Up"], U, "Kinoklip binds Alt+Up / Alt+Down; Resolve's default for moving clips between tracks is not confirmed")
 a("trim.move_down", "Move Clips Down a Track", ["Alt+Down"], U)
+a("trim.trim_editor", "Trim Editor (the frames on both sides of the selected edit point, with trim buttons)", [], U, "Kinoklip's menu entry for Resolve's Trim Editor; no default key known")
 
 sec("Timeline")
 a("edit.split", "Split Clip (Razor) at Playhead", ["Ctrl+\\"], S, "Ctrl+B is not a default (owner feedback alpha.1 #8).")
