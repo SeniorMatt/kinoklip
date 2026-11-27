@@ -125,11 +125,27 @@ private Q_SLOTS:
         QCOMPARE(oddLoaded.video.hdr.maxCll, 10000);
     }
 
-    void onlyHevcAndAv1CarryHdr()
+    void masteringDisplayPrimaries()
+    {
+        ExportSettings s = hdrSettings(QStringLiteral("hevc"), GammaTag::Pq);
+        QCOMPARE(s.video.hdr.primaries, MasterPrimaries::P3D65);
+        QVERIFY(x265MasterDisplay(s.video.hdr).startsWith("G(13250,34500)B(7500,3000)R(34000,16000)"));
+        s.video.hdr.primaries = MasterPrimaries::Rec2020;
+        QVERIFY(x265MasterDisplay(s.video.hdr).startsWith("G(8500,39850)B(6550,2300)R(35400,14600)"));
+        QVERIFY(x265HdrParams(s.video).contains("G(8500,39850)"));
+        QVERIFY(svtAv1HdrParams(s.video).contains("R(0.7080,0.2920)"));
+        const ExportSettings back = ExportSettings::fromJson(s.toJson(), ExportSettings {});
+        QCOMPARE(back.video.hdr.primaries, MasterPrimaries::Rec2020);
+        QCOMPARE(masterPrimariesFromId(QStringLiteral("nonsense"), MasterPrimaries::P3D65),
+            MasterPrimaries::P3D65);
+    }
+
+    void onlyHevcAv1AndProResCarryHdr()
     {
         QVERIFY(codecCarriesHdr(QStringLiteral("hevc")));
         QVERIFY(codecCarriesHdr(QStringLiteral("av1")));
-        for (const char* id : {"h264", "vp9", "prores", "dnxhr", "png", "exr", "gif"})
+        QVERIFY(codecCarriesHdr(QStringLiteral("prores")));
+        for (const char* id : {"h264", "vp9", "dnxhr", "png", "exr", "gif"})
             QVERIFY2(!codecCarriesHdr(QString::fromLatin1(id)), id);
 
         ExportSettings ok = hdrSettings(QStringLiteral("hevc"), GammaTag::Pq);

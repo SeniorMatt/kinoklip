@@ -307,15 +307,21 @@ void main()
 class DirtEffect final : public PassEffect
 {
 public:
-    explicit DirtEffect(bool region)
-        : m_region(region)
+    enum class Kind { Dirt, DustBuster, ObjectRemoval };
+    explicit DirtEffect(Kind kind)
+        : m_kind(kind)
+        , m_region(kind != Kind::Dirt)
     { }
     bool initialize(GlKit& kit, QString* why) override
     {
         const std::string detect = std::string(kConsensus) + kDirtDetect;
         const std::string apply = std::string(kConsensus) + kRegionGlsl + kDirtApply;
         GlFunctions* gl = kit.gl();
-        if (!build(kit, m_region ? "dust_buster" : "automatic_dirt_removal", apply.c_str(), why)
+        if (!build(kit,
+                m_kind == Kind::ObjectRemoval ? "object_removal"
+                    : m_region                ? "dust_buster"
+                                              : "automatic_dirt_removal",
+                apply.c_str(), why)
             || !m_detect.build(gl, "dirt_detect", detect.c_str(), why))
             return false;
         for (GlProgram* program : {&m_program, &m_detect}) {
@@ -345,7 +351,10 @@ public:
     PooledTarget apply(GlKit& kit, const EffectInput& in) override
     {
         const std::vector<int64_t> frames
-            = framesOf(m_region ? fxid::DustBuster : fxid::DirtRemoval, in);
+            = framesOf(m_kind == Kind::ObjectRemoval ? fxid::ObjectRemoval
+                    : m_region                       ? fxid::DustBuster
+                                                     : fxid::DirtRemoval,
+                in);
         if (frames.size() < 2)
             return {};
         FrameFetch fetch(in, frames); // previous, next, then the two a frame further out
@@ -353,8 +362,9 @@ public:
             fetch.at(frames.size() > 3 ? 3 : 1)};
         const ParamSet& p = *in.params;
         GlFunctions* gl = kit.gl();
-        const bool wholeRegion = m_region
-            && choiceParam(p, k::RegionMode, fxchoice::DetectedDirt) == fxchoice::WholeRegion;
+        const bool wholeRegion = m_kind == Kind::ObjectRemoval
+            || (m_region
+                && choiceParam(p, k::RegionMode, fxchoice::DetectedDirt) == fxchoice::WholeRegion);
 
         PooledTarget mask;
         if (!wholeRegion) {
@@ -394,6 +404,7 @@ private:
             kit.bindTexture(1 + i, n[i]->texture);
     }
 
+    Kind m_kind;
     bool m_region;
     GlProgram m_detect;
     GLint m_limits = -1, m_params = -1, m_regionLoc = -1, m_shapeLoc = -1;
@@ -453,8 +464,12 @@ private:
 const GlEffectFactory kTable[] = {
     {fxid::Deflicker, &make<Deflicker>},
     {fxid::ColorStabilizer, &make<ColorStabilizer>},
-    {fxid::DirtRemoval, [] { return std::unique_ptr<GlEffect>(new DirtEffect(false)); }},
-    {fxid::DustBuster, [] { return std::unique_ptr<GlEffect>(new DirtEffect(true)); }},
+    {fxid::DirtRemoval,
+        [] { return std::unique_ptr<GlEffect>(new DirtEffect(DirtEffect::Kind::Dirt)); }},
+    {fxid::DustBuster,
+        [] { return std::unique_ptr<GlEffect>(new DirtEffect(DirtEffect::Kind::DustBuster)); }},
+    {fxid::ObjectRemoval,
+        [] { return std::unique_ptr<GlEffect>(new DirtEffect(DirtEffect::Kind::ObjectRemoval)); }},
     {fxid::PatchReplacer, &make<PatchReplacer>},
 };
 

@@ -234,7 +234,7 @@ bool ExportSettings::validate(QString* error) const
             return fail(tr("Invalid output resolution %1x%2.").arg(video.width).arg(video.height));
         }
         if (video.wideGamut() && !codecCarriesHdr(video.codec)) {
-            return fail(tr("%1 cannot carry Rec.2020, PQ or HLG; use H.265 or AV1.")
+            return fail(tr("%1 cannot carry Rec.2020, PQ or HLG; use H.265, AV1 or ProRes.")
                             .arg(codec->name));
         }
         if (video.isHdr() && video.colorSpace != ColorSpaceTag::Rec2020) {
@@ -354,7 +354,22 @@ GammaTag gammaTagFromId(const QString& id, GammaTag fallback)
 
 bool codecCarriesHdr(const QString& codecId)
 {
-    return codecId == QLatin1String("hevc") || codecId == QLatin1String("av1");
+    return codecId == QLatin1String("hevc") || codecId == QLatin1String("av1")
+        || codecId == QLatin1String("prores");
+}
+
+QString masterPrimariesId(MasterPrimaries p)
+{
+    return p == MasterPrimaries::Rec2020 ? QStringLiteral("rec2020") : QStringLiteral("p3d65");
+}
+
+MasterPrimaries masterPrimariesFromId(const QString& id, MasterPrimaries fallback)
+{
+    if (id == QLatin1String("rec2020"))
+        return MasterPrimaries::Rec2020;
+    if (id == QLatin1String("p3d65"))
+        return MasterPrimaries::P3D65;
+    return fallback;
 }
 
 QJsonObject ExportSettings::toJson() const
@@ -381,6 +396,7 @@ QJsonObject ExportSettings::toJson() const
     if (video.gamma != GammaTag::Rec709) {
         v[QStringLiteral("gamma")] = gammaTagId(video.gamma);
         QJsonObject h;
+        h[QStringLiteral("masterPrimaries")] = masterPrimariesId(video.hdr.primaries);
         h[QStringLiteral("masterMaxNits")] = video.hdr.masterMaxNits;
         h[QStringLiteral("masterMinNits")] = video.hdr.masterMinNits;
         h[QStringLiteral("maxCll")] = video.hdr.maxCll;
@@ -464,6 +480,8 @@ ExportSettings ExportSettings::fromJson(const QJsonObject& o, const ExportSettin
     s.video.gamma = gammaTagFromId(str(v, "gamma", {}), s.video.gamma);
     if (v.contains(QLatin1String("hdr"))) {
         const QJsonObject h = v.value(QLatin1String("hdr")).toObject();
+        s.video.hdr.primaries = masterPrimariesFromId(
+            h.value(QLatin1String("masterPrimaries")).toString(), s.video.hdr.primaries);
         s.video.hdr.masterMaxNits
             = std::clamp(num(h, "masterMaxNits", s.video.hdr.masterMaxNits), 1.0, 10000.0);
         s.video.hdr.masterMinNits

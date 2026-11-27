@@ -219,6 +219,31 @@ private slots:
         QVERIFY(panel.findChild<QCheckBox*>(QStringLiteral("mask-track-points:%1").arg(polyId)));
     }
 
+    void inspectorHasFollowSubject()
+    {
+        // Spec 187.1 / 187.3: every mask group has a Track button; without a playback engine it
+        // says why nothing happens and changes nothing.
+        PanelFixture f;
+        const quint64 id = f.addClip(kV1, 0, 100, ClipKind::Solid);
+        InspectorPanel panel(f.ctx);
+        panel.resize(380, 900);
+        f.selection.selectClip(id);
+        panel.findChild<QToolButton*>(QStringLiteral("add-mask:ellipse"))->click();
+        const quint64 maskId = f.clip(id)->masks[0].id;
+        auto* go = panel.findChild<QToolButton*>(QStringLiteral("mask-follow-subject:%1").arg(maskId));
+        auto* stop = panel.findChild<QToolButton*>(QStringLiteral("mask-follow-stop:%1").arg(maskId));
+        auto* status = panel.findChild<QLabel*>(QStringLiteral("mask-follow-status:%1").arg(maskId));
+        QVERIFY(go && stop && status);
+        QVERIFY(go->isEnabled());
+        QVERIFY(!go->toolTip().isEmpty());
+        QVERIFY(status->text().isEmpty());
+        const int before = f.project.undoStack()->count();
+        go->click();
+        QVERIFY(status->text().contains(QStringLiteral("playback engine")));
+        QCOMPARE(f.project.undoStack()->count(), before);
+        QVERIFY(!f.clip(id)->masks[0].params.values.value(maskkeys::PosX).isAnimated());
+    }
+
     void inspectorEditsMasks()
     {
         PanelFixture f;

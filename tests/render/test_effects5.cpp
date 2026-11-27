@@ -52,6 +52,7 @@ const Row kEffects[] = {
     {fxid::DirtRemoval, effectgroups::Revival, "Automatic Dirt Removal"},
     {fxid::DustBuster, effectgroups::Revival, "Dust Buster"},
     {fxid::PatchReplacer, effectgroups::Revival, "Patch Replacer"},
+    {fxid::ObjectRemoval, effectgroups::Revival, "Object Removal"},
     {fxid::ColorStabilizer, effectgroups::Color, "Color Stabilizer"},
 };
 
@@ -874,6 +875,62 @@ private slots:
             10);
         QVERIFY(grey(all, 203, 33) <= bg + 3);
         QVERIFY(grey(all, 262, 152) > 240);
+    }
+
+    // ---- Object Removal (clean plate) ----
+
+    void objectRemovalReadsFramesFurtherApart()
+    {
+        TimelineData tl = emptyT();
+        auto read = [&](int64_t f, double step) {
+            const EffectInstance e = effect(tl, fxid::ObjectRemoval, {{k::FrameStep, step}});
+            std::vector<int64_t> out;
+            timefx::framesRead(QLatin1String(fxid::ObjectRemoval), e.params, f, &out);
+            return out;
+        };
+        using V = std::vector<int64_t>;
+        QCOMPARE(read(30, 5), (V {25, 35, 20, 40}));
+        QCOMPARE(read(30, 1), (V {29, 31, 28, 32}));
+        // Near the start of the clip the missing frames come from further ahead instead of
+        // repeating frame 0.
+        QCOMPARE(read(3, 5), (V {18, 8, 23, 13}));
+        const EffectInstance off = effect(tl, fxid::ObjectRemoval, {{k::Amount, 0.0}});
+        std::vector<int64_t> none;
+        timefx::framesRead(QLatin1String(fxid::ObjectRemoval), off.params, 30, &none);
+        QVERIFY(none.empty());
+        QVERIFY(timefx::isTimeEffect(QLatin1String(fxid::ObjectRemoval)));
+    }
+
+    void objectRemovalFillsTheRegionFromOtherFrames()
+    {
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        TimelineData t = emptyT();
+        // The white square is x 160..199, y 70..109 in frame 20 and 8 px further every frame.
+        const QImage plain = footage(QStringLiteral("motion"), {}, 20);
+        const int bg = grey(footage(QStringLiteral("motion"), {}, 0), 300, 20);
+        QVERIFY(grey(plain, 175, 90) > 240);
+        auto removed = [&](double step, double strength = 100.0) {
+            return footage(QStringLiteral("motion"),
+                {effect(t, fxid::ObjectRemoval,
+                    {{k::CenterX, 15.0}, {k::CenterY, 0.0}, {k::Width, 30.0}, {k::Height, 60.0},
+                        {k::Feather, 0.0}, {k::FrameStep, step}, {k::Amount, strength}})},
+                20);
+        };
+        const QImage clean = removed(5);
+        // Inside the region the square is gone and the background is back.
+        QVERIFY2(grey(clean, 175, 90) <= bg + 3, qPrintable(QString::number(grey(clean, 175, 90))));
+        QVERIFY(grey(clean, 162, 75) <= bg + 3);
+        // Outside the region the square stays, and the rest of the picture is untouched.
+        QVERIFY(grey(clean, 195, 90) > 240); // the square is x 160..199, the region 160..190
+        QVERIFY(std::abs(grey(clean, 20, 20) - grey(plain, 20, 20)) <= 1);
+        // Frames one apart still show the square at that place: nothing to fill from.
+        QVERIFY(grey(removed(1), 175, 90) > 240);
+        // Strength 0 is the plain picture.
+        QCOMPARE(maxDifference(removed(5, 0.0), plain), 0);
+        // Half strength lands between.
+        const int half = grey(removed(5, 50.0), 175, 90);
+        QVERIFY(half > bg + 40 && half < 230);
     }
 
     // ---- Patch Replacer ----

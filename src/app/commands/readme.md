@@ -19,6 +19,7 @@ end, and a command never edits a timeline in a way the UI cannot: they call `edi
 | `MediaCommands.cpp` | `media.import`, `media.list`, `media.relink` |
 | `TimelineCommands.cpp` | `timeline.list`, `timeline.new`, `timeline.select`, `timeline.convert-rate` |
 | `ClipCommands.cpp` | `clip.list`, `clip.add`, `clip.move`, `clip.trim`, `clip.split`, `clip.delete`, `clip.set` |
+| `MaskCommands.cpp` | `mask.follow`: a mask of a video clip follows the subject under it (planar track both ways, progress per frame, one undo step) |
 | `StabilizeCommands.cpp` | `clip.stabilize`: measures a clip's camera movement (progress per frame) and stores settings + data in one undo step; `clip.set --stabilization on/off` is in `ClipCommands.cpp` |
 | `AlignCommands.cpp` | `clip.align` (spec 153): Auto Align Clips, by waveform or timecode, through `ui/timeline/AutoAlign` (the same code as the clip menu) |
 | `MarkerCommands.cpp` | `marker.add`, `marker.list`, `marker.delete` |

@@ -64,8 +64,101 @@ void InspectorPanel::startEffectTrack(quint64 clipId, quint64 effectId, bool for
     refreshValues();
 }
 
+bool InspectorPanel::startMaskRun(bool forward)
+{
+    const auto state = m_maskTrack;
+    QString why;
+    auto plan = tracking::planMaskTrack(m_ctx.project->timeline()->data(), state->clipId,
+        state->maskId, state->playhead, forward, &why);
+    if (!plan) {
+        if (state->samples.empty())
+            m_maskTrackMessage = tr("Cannot track: %1.").arg(why);
+        return false;
+    }
+    state->current = std::make_shared<tracking::MaskTrackPlan>(std::move(*plan));
+    if (!state->plan)
+        state->plan = state->current;
+    state->forward = forward;
+    tracking::TrackJob job = state->current->track.job;
+    PlaybackEngine* engine = m_ctx.playback;
+    const auto timeline = state->current->track.timeline;
+    const QSize size = state->current->track.renderSize;
+    job.source = [engine, timeline, size](int64_t frame) {
+        return engine->renderImageOf(timeline, frame, size);
+    };
+    return m_effectTracker->start(std::move(job));
+}
+
+void InspectorPanel::startMaskTrack(quint64 clipId, quint64 maskId)
+{
+    m_maskTrackMessageMask = maskId;
+    m_maskTrackMessage.clear();
+    if (m_effectTracker->isRunning())
+        return;
+    if (!m_ctx.playback) {
+        m_maskTrackMessage = tr("Cannot track: there is no playback engine.");
+        refreshValues();
+        return;
+    }
+    m_maskTrack = std::make_shared<MaskTrackState>();
+    m_maskTrack->clipId = clipId;
+    m_maskTrack->maskId = maskId;
+    m_maskTrack->playhead = m_ctx.project->timeline()->playhead();
+    // Forward first (to the end of the clip), then back (to its start): the keys cover the clip.
+    if (!startMaskRun(true) && !startMaskRun(false)) {
+        if (m_maskTrackMessage.isEmpty())
+            m_maskTrackMessage = tr("Cannot track: nothing to track.");
+        m_maskTrack.reset();
+    }
+    refreshValues();
+}
+
+void InspectorPanel::finishMaskTrack(tracking::TrackOutcome outcome, const QString& reason)
+{
+    const auto state = m_maskTrack;
+    const std::vector<tracking::TrackSample>& found = m_effectTracker->samples();
+    state->samples.insert(state->samples.end(), found.begin(), found.end());
+    // The forward run is done: go back from the same frame, unless the user stopped or it was lost.
+    if (state->forward && outcome != tracking::TrackOutcome::Stopped
+        && startMaskRun(false)) {
+        refreshValues();
+        return;
+    }
+    m_maskTrack.reset();
+    QString message;
+    const ClipData* cd = clip(state->clipId);
+    if (state->samples.size() < 2) {
+        message = outcome == tracking::TrackOutcome::Stopped
+            ? tr("Tracking cancelled. The mask is unchanged.")
+            : tr("Tracking failed: %1").arg(reason.isEmpty() ? tr("nothing was found.") : reason);
+    } else if (!cd) {
+        message = tr("The clip was removed; the track was dropped.");
+    } else {
+        const TimelineData& tl = m_ctx.project->timeline()->data();
+        const QSizeF frameSize(tl.width, tl.height);
+        const Rational fps = tl.fps;
+        const auto plan = state->plan;
+        const auto samples = state->samples;
+        bool stored = false;
+        editClip(tr("Follow Subject"), state->clipId, [&](ClipData& target) {
+            stored = tracking::storeMaskTrack(target, *plan, samples, frameSize, fps);
+        });
+        message = !stored ? tr("The mask could not be keyed.")
+            : outcome == tracking::TrackOutcome::Stopped
+            ? tr("Tracking stopped. Keys up to there: %1 frames.").arg(samples.size())
+            : tr("The mask follows its subject (%1 frames tracked).").arg(samples.size());
+    }
+    m_maskTrackMessage = message;
+    m_maskTrackMessageMask = state->maskId;
+    refreshValues();
+}
+
 void InspectorPanel::onEffectTrackFinished(tracking::TrackOutcome outcome, const QString& reason)
 {
+    if (m_maskTrack) {
+        finishMaskTrack(outcome, reason);
+        return;
+    }
     if (!m_trackPlan)
         return;
     const auto plan = std::move(m_trackPlan);

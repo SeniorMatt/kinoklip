@@ -280,11 +280,55 @@ void InspectorPanel::buildMasksSection(const ClipData& c)
             }
         }
 
+        // Follow Subject: the mask follows what is under it, no tracker to set up first.
+        QToolButton* followGo = nullptr;
+        QToolButton* followStop = nullptr;
+        QLabel* followStatus = nullptr;
+        {
+            auto* row = new QWidget;
+            auto* rowLayout = new QHBoxLayout(row);
+            rowLayout->setContentsMargins(0, 0, 0, 0);
+            followGo = new QToolButton(row);
+            followGo->setObjectName(QStringLiteral("mask-follow-subject:%1").arg(maskId));
+            followGo->setText(tr("Track"));
+            followGo->setToolTip(tr("Make this mask follow the subject under it: tracks from the "
+                                    "playhead to the end of the clip and back to its start, then "
+                                    "keys the mask's position, scale and rotation"));
+            followStop = new QToolButton(row);
+            followStop->setObjectName(QStringLiteral("mask-follow-stop:%1").arg(maskId));
+            followStop->setText(tr("Cancel"));
+            followStatus = new QLabel(row);
+            followStatus->setObjectName(QStringLiteral("mask-follow-status:%1").arg(maskId));
+            followStatus->setWordWrap(true);
+            rowLayout->addWidget(followGo);
+            rowLayout->addWidget(followStop);
+            rowLayout->addWidget(followStatus, 1);
+            group->addWidgetRow(tr("Follow Subject"), row);
+            connect(followGo, &QToolButton::clicked, this,
+                [this, clipId, maskId] { startMaskTrack(clipId, maskId); });
+            connect(followStop, &QToolButton::clicked, this, [this] { m_effectTracker->stop(); });
+        }
+
         group->setHeaderRefresh([this, enable, edit, diamond, shapeInfo, shapeKey, keyed, clipId,
-                                    maskId, index = i](const ClipData& cd) {
+                                    maskId, followGo, followStop, followStatus,
+                                    index = i](const ClipData& cd) {
             const MaskData* m = paramaccess::mask(cd, maskId);
             if (!m)
                 return;
+            {
+                const bool running = m_effectTracker->isRunning();
+                const bool mine = running && m_maskTrack && m_maskTrack->maskId == maskId;
+                followGo->setEnabled(!running);
+                followStop->setVisible(mine);
+                QString text;
+                if (mine)
+                    text = tr("Tracking... %1 frames").arg(
+                        m_maskTrack->samples.size() + m_effectTracker->samples().size());
+                else if (m_maskTrackMessageMask == maskId && !m_maskTrackMessage.isEmpty())
+                    text = m_maskTrackMessage;
+                if (followStatus->text() != text)
+                    followStatus->setText(text);
+            }
             if (enable->isChecked() != m->enabled)
                 enable->setChecked(m->enabled);
             const bool active = m_ctx.selection && m_ctx.selection->activeMask() == maskId;

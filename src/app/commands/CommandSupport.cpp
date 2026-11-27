@@ -3,9 +3,11 @@
 #include "app/commands/CommandSupport.h"
 
 #include "core/EditOps.h"
+#include "core/Mask.h"
 #include "core/ParamKeys.h"
 #include "ui/common/TimecodeFormat.h"
 
+#include <QJsonArray>
 #include <QRegularExpression>
 
 #include <cmath>
@@ -112,6 +114,18 @@ QJsonObject clipToJson(const TimelineData& data, TrackRef track, const ClipData&
                 {QStringLiteral("croppingRatio"), st.croppingRatio},
                 {QStringLiteral("smooth"), st.smooth}, {QStringLiteral("strength"), st.strength},
                 {QStringLiteral("analysed"), bool(clip.stabilization.data)}});
+    }
+    if (!clip.masks.isEmpty()) {
+        QJsonArray masks;
+        for (int i = 0; i < clip.masks.size(); ++i) {
+            const MaskData& m = clip.masks[i];
+            masks.append(QJsonObject {{QStringLiteral("id"), qint64(m.id)},
+                {QStringLiteral("name"), maskDisplayName(m, i)},
+                {QStringLiteral("shape"), maskShapeToString(m.shape)},
+                {QStringLiteral("enabled"), m.enabled},
+                {QStringLiteral("animated"), m.isAnimated()}});
+        }
+        o.insert(QStringLiteral("masks"), masks);
     }
     return o;
 }
