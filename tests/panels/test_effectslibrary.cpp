@@ -96,7 +96,7 @@ private slots:
         QCOMPARE(names(1).size(), 29); // Fusion Transitions: 15 + 13 added in 54.9 + Fusion Composition
         QCOMPARE(names(2).size(), 9);
         QCOMPARE(names(3).size(), 4);
-        QCOMPARE(names(4).size(), 1);
+        QCOMPARE(names(4).size(), 2); // Resolve FX Transitions: Burn Away and DCTL Transition
         QCOMPARE(names(5).size(), 5);
         QCOMPARE(names(6).size(), 8);
         panel.setFilterText(QStringLiteral("smooth"));

@@ -419,7 +419,7 @@ std::span<const GlEffectFactory> builtinGlEffects()
         std::vector<GlEffectFactory> rows(std::begin(kEffectTable), std::end(kEffectTable));
         for (auto table : {keyerGlEffects(), colorGlEffects(), blurGlEffects(), stylizeGlEffects(),
                  distortGlEffects(), gradeGlEffects(), focusGlEffects(), lightGlEffects(),
-                 lookGlEffects(), warpGlEffects(), timeGlEffects(), extraColorGlEffects(),
+                 lookGlEffects(), warpGlEffects(), timeGlEffects(), extraColorGlEffects(), colorManagementGlEffects(), dctlGlEffects(),
                  extraGlEffects(), detailGlEffects(), damageGlEffects(), paintGlEffects(),
                  opticsGlEffects(), utilityGlEffects(), temporalGlEffects(),
                  repairGlEffects(), templateLookGlEffects(), meshGlEffects(), backgroundRemovalGlEffects()})

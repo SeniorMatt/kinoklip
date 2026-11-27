@@ -238,6 +238,7 @@ private:
                                   ///< Camera (spec 65)
     void registerVideoEffects7(); ///< 1.2 tracking: Match Move, Surface Tracker, Warper (spec 70)
     void registerVideoEffects8(); ///< 1.4 Background Removal (AI, spec 78)
+    void registerVideoEffects9(); ///< colour management: CST, ACES, gamut, DCTL (spec 205)
     /// The clip audio effects (BuiltinAudioEffects.cpp).
     void registerAudioEffects();
 

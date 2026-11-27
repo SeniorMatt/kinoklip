@@ -2,7 +2,7 @@
 
 151 of 183 entries work.
 
-Every entry of the Effects library that DaVinci Resolve is known to have from its public documentation (names only), and whether Kinoklip has it. `works` means an effect, transition, generator, title or clip of the same job is registered in Kinoklip (sometimes under its own name or with other settings); `planned` means it is not there yet. Nothing here is marked `not planned`. Kinoklip's own extras that Resolve lacks are not listed. The research behind the list is the gap list for version 1.2; the behaviour of what landed is in [behavior-spec.md](behavior-spec.md) sections 54, 56, 57 and 60. [scripts/status.py](../scripts/status.py) counts this table for the picture in the readme; run it after changing a row.
+Every entry of the Effects library that DaVinci Resolve is known to have from its public documentation (names only), and whether Kinoklip has it. `works` means an effect, transition, generator, title or clip of the same job is registered in Kinoklip (sometimes under its own name or with other settings); `planned` means it is not there yet. Nothing here is marked `not planned`. Kinoklip's own extras that Resolve lacks are not listed. The research behind the list is the gap list for version 1.2; the behaviour of what landed is in [behavior-spec.md](behavior-spec.md) sections 54, 56, 57, 60 and 205 to 207. [scripts/status.py](../scripts/status.py) counts this table for the picture in the readme; run it after changing a row.
 
 ## Video transitions
 
@@ -70,7 +70,7 @@ Every entry of the Effects library that DaVinci Resolve is known to have from it
 | Zoom In | Fusion Transitions | Video transition | works |
 | Zoom In and Out | Fusion Transitions | Video transition | works |
 | Burn Away | Resolve FX Transitions | Video transition | works |
-| DCTL Transition | Resolve FX Transitions | Video transition | planned |
+| DCTL Transition | Resolve FX Transitions | Video transition | works |
 
 ## Audio transitions
 
@@ -137,19 +137,19 @@ Every entry of the Effects library that DaVinci Resolve is known to have from it
 | Mosaic Blur | Blur | Video effect | works |
 | Radial Blur | Blur | Video effect | works |
 | Zoom Blur | Blur | Video effect | works |
-| ACES Transform | Color | Video effect | planned |
-| Chromatic Adaptation | Color | Video effect | planned |
-| Color Compressor | Color | Video effect | planned |
-| Color Space Transform | Color | Video effect | planned |
+| ACES Transform | Color | Video effect | works |
+| Chromatic Adaptation | Color | Video effect | works |
+| Color Compressor | Color | Video effect | works |
+| Color Space Transform | Color | Video effect | works |
 | Color Stabilizer | Color | Video effect | works |
 | Contrast Pop | Color | Video effect | works |
-| DCTL | Color | Video effect | planned |
+| DCTL | Color | Video effect | works |
 | Dehaze | Color | Video effect | works |
 | Despill | Color | Video effect | works |
 | False Color | Color | Video effect | works |
 | Flicker Addition | Color | Video effect | works |
 | Gamut Limiter | Color | Video effect | works |
-| Gamut Mapping | Color | Video effect | planned |
+| Gamut Mapping | Color | Video effect | works |
 | Invert Color | Color | Video effect | works |
 | Color Generator | Generate | Video effect | works |
 | Color Palette | Generate | Video effect | works |

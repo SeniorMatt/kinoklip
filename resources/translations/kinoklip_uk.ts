@@ -2213,6 +2213,22 @@ The program was probably closed by the system because the computer ran out of me
         <source>Plugins</source>
         <translation>Плагіни</translation>
     </message>
+    <message>
+        <source>Method</source>
+        <translation>Метод</translation>
+    </message>
+    <message>
+        <source>Bradford</source>
+        <translation>Bradford</translation>
+    </message>
+    <message>
+        <source>CAT02</source>
+        <translation>CAT02</translation>
+    </message>
+    <message>
+        <source>Von Kries</source>
+        <translation>Von Kries</translation>
+    </message>
 </context>
 <context>
     <name>kk::ActionDescriptions</name>
@@ -6837,6 +6853,10 @@ Thank you for watching</source>
         <translation>За годинниковою стрілкою</translation>
     </message>
     <message>
+        <source>Color Parameter %1</source>
+        <translation>Параметр кольору %1</translation>
+    </message>
+    <message>
         <source>Crash Zoom</source>
         <translation>Різкий зум</translation>
     </message>
@@ -6855,6 +6875,14 @@ Thank you for watching</source>
     <message>
         <source>Custom Curve</source>
         <translation>Власна крива</translation>
+    </message>
+    <message>
+        <source>DCTL File</source>
+        <translation>Файл DCTL</translation>
+    </message>
+    <message>
+        <source>DCTL Transition</source>
+        <translation>Перехід DCTL</translation>
     </message>
     <message>
         <source>Diamond Iris</source>
@@ -7057,6 +7085,10 @@ Thank you for watching</source>
         <translation>Малювання</translation>
     </message>
     <message>
+        <source>Parameter %1 (from default)</source>
+        <translation>Параметр %1 (зміна від значення за замовчуванням)</translation>
+    </message>
+    <message>
         <source>Pentagon Iris</source>
         <translation>П’ятикутна діафрагма</translation>
     </message>
@@ -7123,6 +7155,10 @@ Thank you for watching</source>
     <message>
         <source>Round and Down</source>
         <translation>Поворот донизу</translation>
+    </message>
+    <message>
+        <source>Runs a DaVinci CTL file (.dctl) with a transition() function between the two clips. The sliders of the file are the parameters below, each as a change from the default set in the file</source>
+        <translation>Виконує файл DaVinci CTL (.dctl) з функцією transition() між двома кліпами. Повзунки файлу — це параметри нижче, кожен як зміна від значення за замовчуванням, заданого у файлі</translation>
     </message>
     <message>
         <source>Shadow Blend</source>
@@ -7388,6 +7424,26 @@ Thank you for watching</source>
         <translation>Плитка відеодзвінка: зображення в заокругленій рамці на темному тлі з написом імені, значком мікрофона, смужками з’єднання, таймером дзвінка та кільцем, що світиться, коли людина говорить</translation>
     </message>
     <message>
+        <source>ACES 1.1</source>
+        <translation>ACES 1.1</translation>
+    </message>
+    <message>
+        <source>ACES 1.2</source>
+        <translation>ACES 1.2</translation>
+    </message>
+    <message>
+        <source>ACES 1.3</source>
+        <translation>ACES 1.3</translation>
+    </message>
+    <message>
+        <source>ACES Transform</source>
+        <translation>Перетворення ACES</translation>
+    </message>
+    <message>
+        <source>ACES Version</source>
+        <translation>Версія ACES</translation>
+    </message>
+    <message>
         <source>AF-C</source>
         <translation>AF-C</translation>
     </message>
@@ -7466,6 +7522,14 @@ Thank you for watching</source>
     <message>
         <source>Apply</source>
         <translation>Застосувати</translation>
+    </message>
+    <message>
+        <source>Apply Forward OOTF</source>
+        <translation>Застосувати пряму OOTF</translation>
+    </message>
+    <message>
+        <source>Apply Inverse OOTF</source>
+        <translation>Застосувати обернену OOTF</translation>
     </message>
     <message>
         <source>Apply LUT</source>
@@ -7652,6 +7716,10 @@ Thank you for watching</source>
         <translation>Блочне розмиття</translation>
     </message>
     <message>
+        <source>Bradford</source>
+        <translation>Bradford</translation>
+    </message>
+    <message>
         <source>Bright Only</source>
         <translation>Лише яскраві</translation>
     </message>
@@ -7692,6 +7760,10 @@ Thank you for watching</source>
         <translation>Повертає деталі, сховані в глибоких тінях і яскравих світлах</translation>
     </message>
     <message>
+        <source>Brings colors that lie outside a smaller gamut back inside it, softly, and keeps the picture in its own color space</source>
+        <translation>М'яко повертає кольори, що вийшли за межі меншого охоплення, назад у нього; зображення залишається у своєму колірному просторі</translation>
+    </message>
+    <message>
         <source>Brush Size</source>
         <translation>Розмір пензля</translation>
     </message>
@@ -7702,6 +7774,10 @@ Thank you for watching</source>
     <message>
         <source>Bulge / Pinch</source>
         <translation>Випуклість / Стиснення</translation>
+    </message>
+    <message>
+        <source>CAT02</source>
+        <translation>CAT02</translation>
     </message>
     <message>
         <source>CCTV</source>
@@ -7756,6 +7832,10 @@ Thank you for watching</source>
         <translation>Виправлення хроматичної аберації</translation>
     </message>
     <message>
+        <source>Chromatic Adaptation</source>
+        <translation>Хроматична адаптація</translation>
+    </message>
+    <message>
         <source>Circle Dots</source>
         <translation>Круглі крапки</translation>
     </message>
@@ -7804,8 +7884,24 @@ Thank you for watching</source>
         <translation>Розтікання кольору</translation>
     </message>
     <message>
+        <source>Color Compressor</source>
+        <translation>Компресор кольору</translation>
+    </message>
+    <message>
         <source>Color Palette</source>
         <translation>Колірна палітра</translation>
+    </message>
+    <message>
+        <source>Color Parameter %1</source>
+        <translation>Параметр кольору %1</translation>
+    </message>
+    <message>
+        <source>Color Space</source>
+        <translation>Колірний простір</translation>
+    </message>
+    <message>
+        <source>Color Space Transform</source>
+        <translation>Перетворення колірного простору</translation>
     </message>
     <message>
         <source>Color Split</source>
@@ -7832,6 +7928,10 @@ Thank you for watching</source>
         <translation>Смуга компаса</translation>
     </message>
     <message>
+        <source>Compression Limit</source>
+        <translation>Межа стиснення</translation>
+    </message>
+    <message>
         <source>Connection Bars</source>
         <translation>Смужки з’єднання</translation>
     </message>
@@ -7842,6 +7942,10 @@ Thank you for watching</source>
     <message>
         <source>Contrast Pop</source>
         <translation>Підсилення контрасту</translation>
+    </message>
+    <message>
+        <source>Converts the picture from one color space and gamma to another, with tone mapping and gamut mapping for the step from HDR or wide gamut to a smaller display</source>
+        <translation>Перетворює зображення з одного колірного простору й гами в інші, з тональним та охоплювальним відображенням для переходу від HDR чи широкого охоплення до меншого дисплея</translation>
     </message>
     <message>
         <source>Corner Marks</source>
@@ -7896,12 +8000,24 @@ Thank you for watching</source>
         <translation>DCI-P3 D65</translation>
     </message>
     <message>
+        <source>DCTL</source>
+        <translation>DCTL</translation>
+    </message>
+    <message>
+        <source>DCTL File</source>
+        <translation>Файл DCTL</translation>
+    </message>
+    <message>
         <source>DSLR</source>
         <translation>DSLR</translation>
     </message>
     <message>
         <source>DVE</source>
         <translation>DVE</translation>
+    </message>
+    <message>
+        <source>DaVinci</source>
+        <translation>DaVinci</translation>
     </message>
     <message>
         <source>Dark Only</source>
@@ -8300,6 +8416,10 @@ Thank you for watching</source>
         <translation>Обмежувач гами</translation>
     </message>
     <message>
+        <source>Gamut Mapping</source>
+        <translation>Відображення охоплення</translation>
+    </message>
+    <message>
         <source>Gap</source>
         <translation>Проміжок</translation>
     </message>
@@ -8424,6 +8544,10 @@ Thank you for watching</source>
         <translation>Висока</translation>
     </message>
     <message>
+        <source>Highlight Limit</source>
+        <translation>Межа світлих ділянок</translation>
+    </message>
+    <message>
         <source>Highlight Protection</source>
         <translation>Захист світел</translation>
     </message>
@@ -8488,6 +8612,18 @@ Thank you for watching</source>
         <translation>Вхідний чорний</translation>
     </message>
     <message>
+        <source>Input Color Space</source>
+        <translation>Вхідний колірний простір</translation>
+    </message>
+    <message>
+        <source>Input Gamma</source>
+        <translation>Вхідна гама</translation>
+    </message>
+    <message>
+        <source>Input Transform</source>
+        <translation>Вхідне перетворення</translation>
+    </message>
+    <message>
         <source>Input White</source>
         <translation>Вхідний білий</translation>
     </message>
@@ -8506,6 +8642,10 @@ Thank you for watching</source>
     <message>
         <source>Invert</source>
         <translation>Інвертувати</translation>
+    </message>
+    <message>
+        <source>Invert Output Transform</source>
+        <translation>Інвертувати вихідне перетворення</translation>
     </message>
     <message>
         <source>JPEG Damage</source>
@@ -8652,6 +8792,10 @@ Thank you for watching</source>
         <translation>Низька яскравість</translation>
     </message>
     <message>
+        <source>Luminance Mapping</source>
+        <translation>Відображення яскравості</translation>
+    </message>
+    <message>
         <source>Luminance Softness</source>
         <translation>М’якість яскравості</translation>
     </message>
@@ -8674,6 +8818,10 @@ Thank you for watching</source>
     <message>
         <source>Makes the fine texture of surfaces stand out, without touching the large tones</source>
         <translation>Робить дрібну текстуру поверхонь виразнішою, не чіпаючи великих тонів</translation>
+    </message>
+    <message>
+        <source>Mapping Mode</source>
+        <translation>Режим відображення</translation>
     </message>
     <message>
         <source>Maps the shadows to one color and the highlights to another</source>
@@ -8702,6 +8850,14 @@ Thank you for watching</source>
     <message>
         <source>Matte Only</source>
         <translation>Лише матте</translation>
+    </message>
+    <message>
+        <source>Max Input Luminance</source>
+        <translation>Макс. вхідна яскравість</translation>
+    </message>
+    <message>
+        <source>Max Output Luminance</source>
+        <translation>Макс. вихідна яскравість</translation>
     </message>
     <message>
         <source>Maximum</source>
@@ -8780,6 +8936,14 @@ Thank you for watching</source>
         <translation>Вільно переміщує чотири кути (перспектива): зсуви від кутів кліпу</translation>
     </message>
     <message>
+        <source>Moves the picture into ACES with an input transform, or out of it with an output transform (reference rendering and display)</source>
+        <translation>Переводить зображення в ACES вхідним перетворенням або назад вихідним (еталонний рендеринг і дисплей)</translation>
+    </message>
+    <message>
+        <source>Moves the white point of the picture from one illuminant to another, like a white balance in XYZ</source>
+        <translation>Переносить точку білого зображення від одного джерела світла до іншого, як баланс білого в XYZ</translation>
+    </message>
+    <message>
         <source>Moves, scales and rotates the picture, as an effect that can sit anywhere in the stack</source>
         <translation>Переміщує, масштабує й обертає зображення як ефект, що може стояти будь-де в стеку</translation>
     </message>
@@ -8810,6 +8974,10 @@ Thank you for watching</source>
     <message>
         <source>Noise Reduction</source>
         <translation>Зменшення шуму</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Немає</translation>
     </message>
     <message>
         <source>Normal</source>
@@ -8856,6 +9024,18 @@ Thank you for watching</source>
         <translation>Вихідний чорний</translation>
     </message>
     <message>
+        <source>Output Color Space</source>
+        <translation>Вихідний колірний простір</translation>
+    </message>
+    <message>
+        <source>Output Gamma</source>
+        <translation>Вихідна гама</translation>
+    </message>
+    <message>
+        <source>Output Transform</source>
+        <translation>Вихідне перетворення</translation>
+    </message>
+    <message>
         <source>Output White</source>
         <translation>Вихідний білий</translation>
     </message>
@@ -8898,6 +9078,10 @@ Thank you for watching</source>
     <message>
         <source>Paper Texture</source>
         <translation>Текстура паперу</translation>
+    </message>
+    <message>
+        <source>Parameter %1 (from default)</source>
+        <translation>Параметр %1 (зміна від значення за замовчуванням)</translation>
     </message>
     <message>
         <source>Patch Replacer</source>
@@ -8966,6 +9150,10 @@ Thank you for watching</source>
     <message>
         <source>Posterize</source>
         <translation>Постеризація</translation>
+    </message>
+    <message>
+        <source>Power</source>
+        <translation>Степінь</translation>
     </message>
     <message>
         <source>Preview (fast)</source>
@@ -9204,6 +9392,10 @@ Thank you for watching</source>
         <translation>Правило третин</translation>
     </message>
     <message>
+        <source>Runs a DaVinci CTL file (.dctl) on the picture. The sliders of the file are the parameters below, in the order of the file, each as a change from the default set in the file</source>
+        <translation>Виконує файл DaVinci CTL (.dctl) над зображенням. Повзунки файлу — це параметри нижче, у порядку файлу, кожен як зміна від значення за замовчуванням, заданого у файлі</translation>
+    </message>
+    <message>
         <source>Satellites</source>
         <translation>Супутники</translation>
     </message>
@@ -9216,16 +9408,32 @@ Thank you for watching</source>
         <translation>Насиченість</translation>
     </message>
     <message>
+        <source>Saturation Compression</source>
+        <translation>Стиснення насиченості</translation>
+    </message>
+    <message>
         <source>Saturation High</source>
         <translation>Висока насиченість</translation>
+    </message>
+    <message>
+        <source>Saturation Limit</source>
+        <translation>Межа насиченості</translation>
     </message>
     <message>
         <source>Saturation Low</source>
         <translation>Низька насиченість</translation>
     </message>
     <message>
+        <source>Saturation Mapping</source>
+        <translation>Відображення насиченості</translation>
+    </message>
+    <message>
         <source>Saturation Softness</source>
         <translation>М’якість насиченості</translation>
+    </message>
+    <message>
+        <source>Saturation Threshold</source>
+        <translation>Поріг насиченості</translation>
     </message>
     <message>
         <source>Scale</source>
@@ -9324,6 +9532,10 @@ Thank you for watching</source>
         <translation>Витримка</translation>
     </message>
     <message>
+        <source>Simple</source>
+        <translation>Просте</translation>
+    </message>
+    <message>
         <source>Size</source>
         <translation>Розмір</translation>
     </message>
@@ -9374,6 +9586,18 @@ Thank you for watching</source>
     <message>
         <source>Softness</source>
         <translation>М’якість</translation>
+    </message>
+    <message>
+        <source>Source White Point</source>
+        <translation>Вихідна точка білого</translation>
+    </message>
+    <message>
+        <source>Source White x</source>
+        <translation>Вихідний білий x</translation>
+    </message>
+    <message>
+        <source>Source White y</source>
+        <translation>Вихідний білий y</translation>
     </message>
     <message>
         <source>Source X</source>
@@ -9430,6 +9654,10 @@ Thank you for watching</source>
     <message>
         <source>Square Pinch</source>
         <translation>Квадратне стиснення</translation>
+    </message>
+    <message>
+        <source>Squeezes values that are too bright and colors that are too saturated into the range, softly instead of clipping them</source>
+        <translation>М'яко вжимає в діапазон надто яскраві значення й надто насичені кольори замість обрізання</translation>
     </message>
     <message>
         <source>Starburst spikes from the bright lights of the picture, like a stopped-down lens</source>
@@ -9490,6 +9718,22 @@ Thank you for watching</source>
     <message>
         <source>Takes the fog or haze out of the picture, from the darkest colors of each area</source>
         <translation>Прибирає туман або серпанок із зображення за найтемнішими кольорами кожної ділянки</translation>
+    </message>
+    <message>
+        <source>Target Color Space</source>
+        <translation>Цільовий колірний простір</translation>
+    </message>
+    <message>
+        <source>Target White Point</source>
+        <translation>Цільова точка білого</translation>
+    </message>
+    <message>
+        <source>Target White x</source>
+        <translation>Цільовий білий x</translation>
+    </message>
+    <message>
+        <source>Target White y</source>
+        <translation>Цільовий білий y</translation>
     </message>
     <message>
         <source>Target X</source>
@@ -9600,6 +9844,10 @@ Thank you for watching</source>
         <translation>Допуск</translation>
     </message>
     <message>
+        <source>Tone Mapping</source>
+        <translation>Тональне відображення</translation>
+    </message>
+    <message>
         <source>Tone curves: a master curve and one per red, green and blue channel</source>
         <translation>Тонові криві: головна крива та по одній для червоного, зеленого й синього каналів</translation>
     </message>
@@ -9708,6 +9956,10 @@ Thank you for watching</source>
         <translation>Використати колір 3</translation>
     </message>
     <message>
+        <source>Use White Point Adaptation</source>
+        <translation>Використовувати адаптацію точки білого</translation>
+    </message>
+    <message>
         <source>Vertical Bow</source>
         <translation>Вертикальний вигин</translation>
     </message>
@@ -9734,6 +9986,10 @@ Thank you for watching</source>
     <message>
         <source>Vignette</source>
         <translation>Віньєтка</translation>
+    </message>
+    <message>
+        <source>Von Kries</source>
+        <translation>Von Kries</translation>
     </message>
     <message>
         <source>Warmer / cooler (blue - orange) and green - magenta white balance</source>
@@ -9790,6 +10046,158 @@ Thank you for watching</source>
     <message>
         <source>Zoom Blur</source>
         <translation>Розмиття масштабуванням</translation>
+    </message>
+    <message>
+        <source>Rec.709 / sRGB</source>
+        <translation>Rec.709 / sRGB</translation>
+    </message>
+    <message>
+        <source>Rec.2020</source>
+        <translation>Rec.2020</translation>
+    </message>
+    <message>
+        <source>P3-D65</source>
+        <translation>P3-D65</translation>
+    </message>
+    <message>
+        <source>P3-DCI</source>
+        <translation>P3-DCI</translation>
+    </message>
+    <message>
+        <source>P3-D60</source>
+        <translation>P3-D60</translation>
+    </message>
+    <message>
+        <source>ACES AP0 (ACES2065-1)</source>
+        <translation>ACES AP0 (ACES2065-1)</translation>
+    </message>
+    <message>
+        <source>ACES AP1 (ACEScg)</source>
+        <translation>ACES AP1 (ACEScg)</translation>
+    </message>
+    <message>
+        <source>Adobe RGB</source>
+        <translation>Adobe RGB</translation>
+    </message>
+    <message>
+        <source>DaVinci Wide Gamut</source>
+        <translation>DaVinci Wide Gamut</translation>
+    </message>
+    <message>
+        <source>ARRI Wide Gamut 3</source>
+        <translation>ARRI Wide Gamut 3</translation>
+    </message>
+    <message>
+        <source>Sony S-Gamut3</source>
+        <translation>Sony S-Gamut3</translation>
+    </message>
+    <message>
+        <source>Sony S-Gamut3.Cine</source>
+        <translation>Sony S-Gamut3.Cine</translation>
+    </message>
+    <message>
+        <source>Panasonic V-Gamut</source>
+        <translation>Panasonic V-Gamut</translation>
+    </message>
+    <message>
+        <source>REDWideGamutRGB</source>
+        <translation>REDWideGamutRGB</translation>
+    </message>
+    <message>
+        <source>Linear</source>
+        <translation>Лінійна</translation>
+    </message>
+    <message>
+        <source>Gamma 2.2</source>
+        <translation>Gamma 2.2</translation>
+    </message>
+    <message>
+        <source>Gamma 2.4</source>
+        <translation>Gamma 2.4</translation>
+    </message>
+    <message>
+        <source>Gamma 2.6</source>
+        <translation>Gamma 2.6</translation>
+    </message>
+    <message>
+        <source>sRGB</source>
+        <translation>sRGB</translation>
+    </message>
+    <message>
+        <source>Rec.709</source>
+        <translation>Rec.709</translation>
+    </message>
+    <message>
+        <source>ST2084 (PQ)</source>
+        <translation>ST2084 (PQ)</translation>
+    </message>
+    <message>
+        <source>HLG</source>
+        <translation>HLG</translation>
+    </message>
+    <message>
+        <source>ACEScc</source>
+        <translation>ACEScc</translation>
+    </message>
+    <message>
+        <source>ACEScct</source>
+        <translation>ACEScct</translation>
+    </message>
+    <message>
+        <source>DaVinci Intermediate</source>
+        <translation>DaVinci Intermediate</translation>
+    </message>
+    <message>
+        <source>ARRI LogC3</source>
+        <translation>ARRI LogC3</translation>
+    </message>
+    <message>
+        <source>Sony S-Log3</source>
+        <translation>Sony S-Log3</translation>
+    </message>
+    <message>
+        <source>Panasonic V-Log</source>
+        <translation>Panasonic V-Log</translation>
+    </message>
+    <message>
+        <source>RED Log3G10</source>
+        <translation>RED Log3G10</translation>
+    </message>
+    <message>
+        <source>D50</source>
+        <translation>D50</translation>
+    </message>
+    <message>
+        <source>D55</source>
+        <translation>D55</translation>
+    </message>
+    <message>
+        <source>D60 (ACES)</source>
+        <translation>D60 (ACES)</translation>
+    </message>
+    <message>
+        <source>D65</source>
+        <translation>D65</translation>
+    </message>
+    <message>
+        <source>DCI</source>
+        <translation>DCI</translation>
+    </message>
+    <message>
+        <source>D75</source>
+        <translation>D75</translation>
+    </message>
+    <message>
+        <source>Illuminant A (tungsten)</source>
+        <translation>Джерело A (лампа розжарювання)</translation>
+    </message>
+    <message>
+        <source>Equal energy (E)</source>
+        <translation>Рівноенергетичний (E)</translation>
+    </message>
+    <message>
+        <source>Custom (x, y)</source>
+        <translation>Свій (x, y)</translation>
     </message>
 </context>
 <context>
@@ -15797,6 +16205,26 @@ Thank you for watching</source>
         <translation>Плавність</translation>
     </message>
     <message>
+        <source>DCTL File</source>
+        <translation>Файл DCTL</translation>
+    </message>
+    <message>
+        <source>Parameter %1 (from default)</source>
+        <translation>Параметр %1 (зміна від значення за замовчуванням)</translation>
+    </message>
+    <message>
+        <source>Color Parameter %1</source>
+        <translation>Параметр кольору %1</translation>
+    </message>
+    <message>
+        <source>DCTL Transition</source>
+        <translation>Перехід DCTL</translation>
+    </message>
+    <message>
+        <source>Runs a DaVinci CTL file (.dctl) with a transition() function between the two clips. The sliders of the file are the parameters below, each as a change from the default set in the file</source>
+        <translation>Виконує файл DaVinci CTL (.dctl) з функцією transition() між двома кліпами. Повзунки файлу — це параметри нижче, кожен як зміна від значення за замовчуванням, заданого у файлі</translation>
+    </message>
+    <message>
         <source>Custom</source>
         <translation>Власна</translation>
     </message>
@@ -18479,6 +18907,202 @@ Thank you for watching</source>
     <message>
         <source>How long the tail takes to die away (to a thousandth of its loudness).</source>
         <translation>Скільки часу хвіст згасає (до однієї тисячної гучності).</translation>
+    </message>
+    <message>
+        <source>Color Space Transform</source>
+        <translation>Перетворення колірного простору</translation>
+    </message>
+    <message>
+        <source>Converts the picture from one color space and gamma to another, with tone mapping and gamut mapping for the step from HDR or wide gamut to a smaller display</source>
+        <translation>Перетворює зображення з одного колірного простору й гами в інші, з тональним та охоплювальним відображенням для переходу від HDR чи широкого охоплення до меншого дисплея</translation>
+    </message>
+    <message>
+        <source>Input Color Space</source>
+        <translation>Вхідний колірний простір</translation>
+    </message>
+    <message>
+        <source>Input Gamma</source>
+        <translation>Вхідна гама</translation>
+    </message>
+    <message>
+        <source>Tone Mapping</source>
+        <translation>Тональне відображення</translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation>Немає</translation>
+    </message>
+    <message>
+        <source>Simple</source>
+        <translation>Просте</translation>
+    </message>
+    <message>
+        <source>Luminance Mapping</source>
+        <translation>Відображення яскравості</translation>
+    </message>
+    <message>
+        <source>DaVinci</source>
+        <translation>DaVinci</translation>
+    </message>
+    <message>
+        <source>Output Color Space</source>
+        <translation>Вихідний колірний простір</translation>
+    </message>
+    <message>
+        <source>Output Gamma</source>
+        <translation>Вихідна гама</translation>
+    </message>
+    <message>
+        <source>Gamut Mapping</source>
+        <translation>Відображення охоплення</translation>
+    </message>
+    <message>
+        <source>Saturation Mapping</source>
+        <translation>Відображення насиченості</translation>
+    </message>
+    <message>
+        <source>Saturation Compression</source>
+        <translation>Стиснення насиченості</translation>
+    </message>
+    <message>
+        <source>Apply Forward OOTF</source>
+        <translation>Застосувати пряму OOTF</translation>
+    </message>
+    <message>
+        <source>Apply Inverse OOTF</source>
+        <translation>Застосувати обернену OOTF</translation>
+    </message>
+    <message>
+        <source>Use White Point Adaptation</source>
+        <translation>Використовувати адаптацію точки білого</translation>
+    </message>
+    <message>
+        <source>Max Input Luminance</source>
+        <translation>Макс. вхідна яскравість</translation>
+    </message>
+    <message>
+        <source>Max Output Luminance</source>
+        <translation>Макс. вихідна яскравість</translation>
+    </message>
+    <message>
+        <source>ACES Transform</source>
+        <translation>Перетворення ACES</translation>
+    </message>
+    <message>
+        <source>Moves the picture into ACES with an input transform, or out of it with an output transform (reference rendering and display)</source>
+        <translation>Переводить зображення в ACES вхідним перетворенням або назад вихідним (еталонний рендеринг і дисплей)</translation>
+    </message>
+    <message>
+        <source>ACES Version</source>
+        <translation>Версія ACES</translation>
+    </message>
+    <message>
+        <source>ACES 1.1</source>
+        <translation>ACES 1.1</translation>
+    </message>
+    <message>
+        <source>ACES 1.2</source>
+        <translation>ACES 1.2</translation>
+    </message>
+    <message>
+        <source>ACES 1.3</source>
+        <translation>ACES 1.3</translation>
+    </message>
+    <message>
+        <source>Input Transform</source>
+        <translation>Вхідне перетворення</translation>
+    </message>
+    <message>
+        <source>Output Transform</source>
+        <translation>Вихідне перетворення</translation>
+    </message>
+    <message>
+        <source>Invert Output Transform</source>
+        <translation>Інвертувати вихідне перетворення</translation>
+    </message>
+    <message>
+        <source>Brings colors that lie outside a smaller gamut back inside it, softly, and keeps the picture in its own color space</source>
+        <translation>М'яко повертає кольори, що вийшли за межі меншого охоплення, назад у нього; зображення залишається у своєму колірному просторі</translation>
+    </message>
+    <message>
+        <source>Target Color Space</source>
+        <translation>Цільовий колірний простір</translation>
+    </message>
+    <message>
+        <source>Mapping Mode</source>
+        <translation>Режим відображення</translation>
+    </message>
+    <message>
+        <source>Compression Limit</source>
+        <translation>Межа стиснення</translation>
+    </message>
+    <message>
+        <source>Power</source>
+        <translation>Степінь</translation>
+    </message>
+    <message>
+        <source>Chromatic Adaptation</source>
+        <translation>Хроматична адаптація</translation>
+    </message>
+    <message>
+        <source>Moves the white point of the picture from one illuminant to another, like a white balance in XYZ</source>
+        <translation>Переносить точку білого зображення від одного джерела світла до іншого, як баланс білого в XYZ</translation>
+    </message>
+    <message>
+        <source>Color Space</source>
+        <translation>Колірний простір</translation>
+    </message>
+    <message>
+        <source>Source White Point</source>
+        <translation>Вихідна точка білого</translation>
+    </message>
+    <message>
+        <source>Source White x</source>
+        <translation>Вихідний білий x</translation>
+    </message>
+    <message>
+        <source>Source White y</source>
+        <translation>Вихідний білий y</translation>
+    </message>
+    <message>
+        <source>Target White Point</source>
+        <translation>Цільова точка білого</translation>
+    </message>
+    <message>
+        <source>Target White x</source>
+        <translation>Цільовий білий x</translation>
+    </message>
+    <message>
+        <source>Target White y</source>
+        <translation>Цільовий білий y</translation>
+    </message>
+    <message>
+        <source>Color Compressor</source>
+        <translation>Компресор кольору</translation>
+    </message>
+    <message>
+        <source>Squeezes values that are too bright and colors that are too saturated into the range, softly instead of clipping them</source>
+        <translation>М'яко вжимає в діапазон надто яскраві значення й надто насичені кольори замість обрізання</translation>
+    </message>
+    <message>
+        <source>Highlight Limit</source>
+        <translation>Межа світлих ділянок</translation>
+    </message>
+    <message>
+        <source>Saturation Threshold</source>
+        <translation>Поріг насиченості</translation>
+    </message>
+    <message>
+        <source>Saturation Limit</source>
+        <translation>Межа насиченості</translation>
+    </message>
+    <message>
+        <source>DCTL</source>
+        <translation>DCTL</translation>
+    </message>
+    <message>
+        <source>Runs a DaVinci CTL file (.dctl) on the picture. The sliders of the file are the parameters below, in the order of the file, each as a change from the default set in the file</source>
+        <translation>Виконує файл DaVinci CTL (.dctl) над зображенням. Повзунки файлу — це параметри нижче, у порядку файлу, кожен як зміна від значення за замовчуванням, заданого у файлі</translation>
     </message>
 </context>
 <context>

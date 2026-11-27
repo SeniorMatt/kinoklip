@@ -1,0 +1,40 @@
+// Black and white with a tint, mixed with the picture. A Kinoklip example for the DCTL effect
+// (written for Kinoklip, GPL-3.0-or-later). It shows a typedef struct, brace initialisers, a
+// constant array, casts, a combo box and a colour picker.
+
+typedef struct
+{
+    float3 r0, r1, r2;
+} Matrix3;
+
+DEFINE_UI_PARAMS(weights, Luma Weights, DCTLUI_COMBO_BOX, 0, {0, 1, 2}, {Rec.709, Rec.601, Average})
+DEFINE_UI_PARAMS(amount, Amount, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.01)
+DEFINE_UI_PARAMS(steps, Tone Steps (0 = smooth), DCTLUI_SLIDER_INT, 0, 0, 16, 1)
+DEFINE_UI_PARAMS(tint, Tint, DCTLUI_COLOR_PICKER, 1.0, 0.85, 0.65)
+
+__CONSTANT__ float kWeights[9] = {0.2126f, 0.7152f, 0.0722f,
+                                  0.299f, 0.587f, 0.114f,
+                                  0.3333f, 0.3333f, 0.3333f};
+
+__DEVICE__ float3 mul(Matrix3 m, float3 v)
+{
+    return make_float3(m.r0.x * v.x + m.r0.y * v.y + m.r0.z * v.z,
+                       m.r1.x * v.x + m.r1.y * v.y + m.r1.z * v.z,
+                       m.r2.x * v.x + m.r2.y * v.y + m.r2.z * v.z);
+}
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    int w = weights * 3;
+    float y = kWeights[w] * p_R + kWeights[w + 1] * p_G + kWeights[w + 2] * p_B;
+    if (steps > 0)
+        y = _floorf(y * (float)steps + 0.5f) / (float)steps;
+
+    // a matrix that spreads the grey over the three channels by the tint colour
+    Matrix3 spread = {{tint.x, 0.0f, 0.0f}, {0.0f, tint.y, 0.0f}, {0.0f, 0.0f, tint.z}};
+    float3 mono = mul(spread, make_float3(y, y, y));
+
+    float3 original = make_float3(p_R, p_G, p_B);
+    return make_float3(_mix(original.x, mono.x, amount), _mix(original.y, mono.y, amount),
+        _mix(original.z, mono.z, amount));
+}

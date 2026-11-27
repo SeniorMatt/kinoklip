@@ -3,6 +3,8 @@
 // GLSL shader (GlKeyers.cpp, GlColorEffects.cpp, GlStylizeEffects.cpp); keep them in step.
 #include "render/EffectMath.h"
 
+#include "render/ColorManagementFx.h"
+
 #include "core/VideoEffectKeys.h"
 #include "render/EffectMathExtra.h"
 
@@ -442,7 +444,8 @@ bool isPointEffect(const QString& type)
         if (type == QLatin1String(t))
             return true;
     }
-    return detail::isGradeEffect(type) || detail::isExtraEffect(type);
+    return detail::isGradeEffect(type) || detail::isExtraEffect(type)
+        || isColorManagementEffect(type);
 }
 
 bool applyPointEffect(
@@ -456,6 +459,8 @@ bool applyPointEffect(
         return detail::applyGradeEffect(type, params, localFrame, image, fps);
     if (detail::isExtraEffect(type))
         return detail::applyExtraEffect(type, params, localFrame, image);
+    if (isColorManagementEffect(type))
+        return applyColorManagementEffect(type, params, localFrame, image);
 
     // One resolved parameter set per call; the per-pixel lambda only does arithmetic.
     enum class Kind {

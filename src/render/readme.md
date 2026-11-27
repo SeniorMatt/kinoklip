@@ -627,3 +627,5 @@ Add it in `media::PixelFormat` (see `src/media/readme.md`), map plane formats in
 * AudioMixer: fade handles are equal-power gain ramps in the gain envelope; channel routing is
   applied by `media::AudioDecoder::setChannelMapping()` (a swresample matrix; a change
   re-decodes from the exact sample and clears the retime source cache).
+
+* **Colour management** (spec 205 to 207): `ColorManagementFx.cpp` resolves Color Space Transform / ACES Transform / Gamut Mapping / Chromatic Adaptation / Color Compressor into `cm::CstParams` (maths in `core/ColorSpaces.cpp`) and runs the CPU path; `GlColorManagement.cpp` is the one shader that runs the same pipeline on the GPU (its GLSL curves are twins of `ColorSpaces.cpp`). `GlDctl.cpp` compiles the GLSL that `core/DctlTranslator.cpp` makes from a `.dctl` file (effect and transition).

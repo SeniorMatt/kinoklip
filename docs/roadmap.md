@@ -221,7 +221,8 @@ Still to do:
 - [x] Color: Gallery albums, Memories A to Z, Power Grade albums, Import Still and Export Still (image and our own grade file; Resolve DRX is not read; spec 151)
 - [ ] Color: Versions of a grade (Local and Remote), Groups with Pre-Clip and Post-Clip grades
 - [x] Color: CIE Chromaticity scope (spectral locus, Rec. 709 / DCI-P3 / Rec. 2020 triangles, D65) and scope settings (Scale 0 - 1023 / 0 - 255 / percent / 0.0 - 1.0, Gain), remembered per scope (spec 146)
-- [ ] Color: Color Space Transform, ACES Transform, Gamut Mapping and Chromatic Adaptation effects, Color Management in Project Settings and Input Color Space in Clip Attributes
+- [x] Color: Color Space Transform, ACES Transform, Gamut Mapping, Chromatic Adaptation and Color Compressor effects, DCTL and DCTL Transition (a .dctl file translated to GLSL; GPU only; spec 205 to 207)
+- [ ] Color: Color Management in Project Settings (DaVinci YRGB Color Managed) and Input Color Space in Clip Attributes
 - [ ] Color: Face Refinement, Depth Map, Relight and Sky Replacement effects (optional local open models)
 - [ ] Color: Resolve FX palette: put an effect (Glow, Lens Blur, Film Grain, Halation, Film Look) on a node so its window or qualifier limits it
 - [x] Color: Keyframes palette and strip on the Color page (a row per node, Input and Output Sizing, Static and Dynamic keys, dissolve types, Auto Keyframe, move / add / delete) and a Sizing palette (Zoom, Width, Height, Pan, Tilt, Rotate, Flip; Input Sizing is the clip's Inspector transform, Output Sizing the timeline's; Pitch and Yaw not yet) (spec 148)

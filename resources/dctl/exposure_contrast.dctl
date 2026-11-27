@@ -1,0 +1,37 @@
+// Exposure and contrast around a pivot, with a switch for a gentle highlight roll-off.
+// A Kinoklip example for the DCTL effect (written for Kinoklip, GPL-3.0-or-later).
+//
+// The sliders of this file appear as "Parameter 1", "Parameter 2", ... of the effect, in the
+// order of the DEFINE_UI_PARAMS lines, each as a change from the default written here.
+
+DEFINE_UI_PARAMS(exposure, Exposure (stops), DCTLUI_SLIDER_FLOAT, 0.0, -4.0, 4.0, 0.05)
+DEFINE_UI_PARAMS(contrast, Contrast, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 3.0, 0.01)
+DEFINE_UI_PARAMS(pivot, Pivot, DCTLUI_SLIDER_FLOAT, 0.4, 0.05, 0.95, 0.01)
+DEFINE_UI_PARAMS(rolloff, Highlight Roll-off, DCTLUI_CHECK_BOX, 0)
+
+__DEVICE__ float softShoulder(float x)
+{
+    // linear up to 0.8, then a smooth bend that reaches 1.0 at x = 1.6
+    if (x <= 0.8f)
+        return x;
+    float t = _fminf((x - 0.8f) / 0.8f, 1.0f);
+    return 0.8f + 0.2f * (1.0f - (1.0f - t) * (1.0f - t));
+}
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B)
+{
+    float gain = _exp2f(exposure);
+    float3 c = make_float3(p_R * gain, p_G * gain, p_B * gain);
+
+    // contrast about the pivot
+    c.x = pivot * _powf(_fmaxf(c.x, 0.0f) / pivot, contrast);
+    c.y = pivot * _powf(_fmaxf(c.y, 0.0f) / pivot, contrast);
+    c.z = pivot * _powf(_fmaxf(c.z, 0.0f) / pivot, contrast);
+
+    if (rolloff) {
+        c.x = softShoulder(c.x);
+        c.y = softShoulder(c.y);
+        c.z = softShoulder(c.z);
+    }
+    return c;
+}

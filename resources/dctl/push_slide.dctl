@@ -1,0 +1,16 @@
+// A push: the second picture slides in from the right and pushes the first one out, with an
+// ease at both ends. A Kinoklip example for the DCTL Transition (written for Kinoklip,
+// GPL-3.0-or-later).
+
+DEFINE_UI_PARAMS(ease, Ease, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.01)
+
+__DEVICE__ float4 transition(int p_Width, int p_Height, int p_X, int p_Y, float p_Progress,
+    __TEXTURE__ p_TexFrom, __TEXTURE__ p_TexTo)
+{
+    float t = _mix(p_Progress, p_Progress * p_Progress * (3.0f - 2.0f * p_Progress), ease);
+    float shift = t * (float)p_Width;
+    float x = (float)p_X;
+    if (x + shift < (float)p_Width)
+        return _tex2DVec4(p_TexFrom, x + shift, (float)p_Y);
+    return _tex2DVec4(p_TexTo, x + shift - (float)p_Width, (float)p_Y);
+}
