@@ -53,3 +53,18 @@ Tab
 No such file or directory
 QT_LAYOUT_DIRECTION
 re:(Pan|Slide|Scroll) (Up|Down|Left|Right)
+# Colour space and camera log names (ACES Transform, Color Space Transform): standard names, as in Resolve
+ACES2065-1 (AP0 linear)
+ACEScg
+ARRI Wide Gamut 3 / LogC3
+DaVinci Wide Gamut / Intermediate
+Linear Rec.2020
+Linear Rec.709
+P3-D65 (gamma 2.6)
+Panasonic V-Gamut / V-Log
+REDWideGamutRGB / Log3G10
+Rec.2020 (BT.1886)
+Rec.2020 HLG (no tone map)
+Rec.2020 ST2084 (no tone map)
+Rec.709 (BT.1886)
+Sony S-Gamut3.Cine / S-Log3
