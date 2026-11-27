@@ -183,6 +183,8 @@ std::unique_ptr<GlEffect> makePluginEffect(const QString& fullId)
 
 std::unique_ptr<GlTransition> makePluginTransition(const QString& fullId)
 {
+    if (isOfxId(fullId))
+        return makeOfxTransition(fullId);
     const auto spec = plugins::PluginRegistry::instance().shaderSpec(fullId);
     if (!spec || !spec->transition)
         return nullptr;

@@ -397,6 +397,79 @@ private slots:
             0);
     }
 
+    void transitionPresetsApplyAtAnEditPoint()
+    {
+        const QString bundled = QFileInfo(QStringLiteral(__FILE__)).absolutePath()
+            + QStringLiteral("/../../plugins/bundled");
+        QString error;
+        for (const char* name : {"dev.kinoklip.gl-transitions", "dev.kinoklip.gl-transitions-2",
+                 "dev.kinoklip.transition-presets"})
+            QVERIFY2(PluginRegistry::instance().install(
+                         bundled + QLatin1Char('/') + QLatin1String(name), &error),
+                qPrintable(error));
+        Project project;
+        for (int i = 0; i < 2; ++i) {
+            ClipData clip;
+            clip.kind = ClipKind::Solid;
+            clip.start = i * 100;
+            clip.duration = 100;
+            project.beginEdit(QStringLiteral("Add Clip"));
+            editops::overwriteClip(
+                project.timeline()->mutableData(), TrackRef {TrackType::Video, 0}, clip);
+            project.endEdit();
+        }
+        const QVector<quint64> ids {project.timeline()->data().videoTracks[0].clips[0].id,
+            project.timeline()->data().videoTracks[0].clips[1].id};
+        ActionRegistry actions;
+        SelectionModel selection;
+        AppContext ctx;
+        ctx.project = &project;
+        ctx.selection = &selection;
+        ctx.actions = &actions;
+        LiveTarget target;
+        target.project = &project;
+        PluginHost host(ctx, target, nullptr);
+        host.setQuiet(true);
+        const QString quick = QStringLiteral("plugin:dev.kinoklip.transition-presets/quick_dissolve");
+        const int undoBefore = project.undoStack()->count();
+        // on the head of the second clip: the cut between the two
+        QCOMPARE(host.applyPresetAtEdge(project, ids[1], true, quick), 1);
+        QCOMPARE(project.undoStack()->count(), undoBefore + 1);
+        {
+            const auto& t = project.timeline()->data().videoTracks[0].clips[1].transitionIn;
+            QVERIFY(t.has_value());
+            QCOMPARE(t->type, QString("cross_dissolve"));
+            QCOMPARE(t->duration, int64_t(12));
+        }
+        project.undoStack()->undo();
+        QVERIFY(!project.timeline()->data().videoTracks[0].clips[1].transitionIn.has_value());
+        // the tail of the first clip is the same cut; a selected clip uses the edge nearest the
+        // playhead (here the tail of the first one)
+        project.timeline()->setPlayhead(95);
+        QCOMPARE(host.applyPreset(project, {ids[0]},
+                     QStringLiteral("plugin:dev.kinoklip.transition-presets/dip_to_black")),
+            1);
+        {
+            const auto& t = project.timeline()->data().videoTracks[0].clips[1].transitionIn;
+            QVERIFY(t.has_value());
+            QCOMPARE(t->type, QString("dip_to_color"));
+            QCOMPARE(t->duration, int64_t(24));
+        }
+        // a preset that uses a transition of the GL Transitions pack
+        project.undoStack()->undo();
+        QCOMPARE(host.applyPresetAtEdge(project, ids[1], true,
+                     QStringLiteral("plugin:dev.kinoklip.transition-presets/whip_pan")),
+            1);
+        QCOMPARE(project.timeline()->data().videoTracks[0].clips[1].transitionIn->type,
+            QString("plugin:dev.kinoklip.gl-transitions-2/whip_pan"));
+        // a clip preset does not run at an edit point and the reverse
+        QCOMPARE(host.applyPresetAtEdge(project, ids[1], true,
+                     QStringLiteral("plugin:dev.kinoklip.animation-pack/fade_in")),
+            0);
+        QVERIFY(PluginRegistry::instance().uninstall(
+            QStringLiteral("dev.kinoklip.transition-presets"), &error));
+    }
+
     void scriptsGetOnlyWhatTheirPermissionsAllow()
     {
         Project project;

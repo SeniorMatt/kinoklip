@@ -2,6 +2,7 @@
 // PresetRecipe — see PresetRecipe.h.
 #include "plugins/PresetRecipe.h"
 
+#include <QJsonDocument>
 #include <QRegularExpression>
 
 namespace kk::plugins {
@@ -21,7 +22,7 @@ QJsonValue expandString(const QString& text, const RecipeTarget& t)
 {
     // Exactly one placeholder, with an optional offset: a number.
     static const QRegularExpression exact(
-        QStringLiteral("^\\$(clip|start|end|duration|playhead)(?:([+-])(\\d+))?$"));
+        QStringLiteral("^\\$(clip|start|end|duration|playhead|left|right|edit)(?:([+-])(\\d+))?$"));
     const auto m = exact.match(text);
     const auto valueOf = [&t](const QString& name) -> qint64 {
         if (name == QLatin1String("clip"))
@@ -32,6 +33,12 @@ QJsonValue expandString(const QString& text, const RecipeTarget& t)
             return t.end;
         if (name == QLatin1String("duration"))
             return t.duration;
+        if (name == QLatin1String("left"))
+            return t.left;
+        if (name == QLatin1String("right"))
+            return t.right;
+        if (name == QLatin1String("edit"))
+            return t.edit;
         return t.playhead;
     };
     if (m.hasMatch()) {
@@ -45,7 +52,7 @@ QJsonValue expandString(const QString& text, const RecipeTarget& t)
     if (!text.contains(QLatin1Char('$')))
         return text;
     QString out = text;
-    for (const char* name : {"clip", "start", "end", "duration", "playhead"}) {
+    for (const char* name : {"duration", "playhead", "clip", "start", "end", "left", "right", "edit"}) {
         out.replace(
             QStringLiteral("$") + QLatin1String(name), numberText(valueOf(QLatin1String(name))));
     }
@@ -132,6 +139,19 @@ QVector<RecipeStep> expandRecipe(
         if (error)
             *error = QStringLiteral("a recipe has 1 to %1 commands").arg(kMaxSteps);
         return {};
+    }
+    // An edit point can lack a clip on one side: say so instead of sending clip 0 to a command.
+    if (target.edgePoint) {
+        const QByteArray text = QJsonDocument(recipe).toJson(QJsonDocument::Compact);
+        for (const auto& side : {std::pair<const char*, qint64>{"$left", target.left},
+                 std::pair<const char*, qint64>{"$right", target.right}}) {
+            if (side.second == 0 && text.contains(side.first)) {
+                if (error)
+                    *error = QStringLiteral("this edit point has no clip on its %1 side")
+                                 .arg(QLatin1String(side.first + 1));
+                return {};
+            }
+        }
     }
     int i = 0;
     for (const QJsonValue& v : array) {

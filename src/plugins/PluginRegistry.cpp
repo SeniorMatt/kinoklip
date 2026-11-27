@@ -223,8 +223,12 @@ QString PluginRegistry::bundledDir() const
     if (!env.isEmpty())
         return QString::fromLocal8Bit(env);
     const QString app = QCoreApplication::applicationDirPath();
-    for (const QString& candidate :
-        {app + QStringLiteral("/../share/kinoklip/plugins"), app + QStringLiteral("/plugins")}) {
+    QStringList candidates = {
+        app + QStringLiteral("/../share/kinoklip/plugins"), app + QStringLiteral("/plugins")};
+#ifdef KK_PLUGIN_BUNDLED_SOURCE_DIR
+    candidates << QStringLiteral(KK_PLUGIN_BUNDLED_SOURCE_DIR); // a build from the source tree
+#endif
+    for (const QString& candidate : std::as_const(candidates)) {
         if (QFileInfo(candidate).isDir())
             return QDir::cleanPath(candidate);
     }

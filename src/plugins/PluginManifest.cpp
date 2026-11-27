@@ -532,9 +532,12 @@ ParseResult parseManifest(const QByteArray& json)
                 d.target = PresetTarget::Clip;
             else if (target == QLatin1String("playhead"))
                 d.target = PresetTarget::Playhead;
+            else if (target == QLatin1String("edit_point"))
+                d.target = PresetTarget::EditPoint;
             else
                 w.add(path + QStringLiteral(".target"),
-                    QStringLiteral("\"%1\" is not a target (clip, playhead)").arg(target));
+                    QStringLiteral("\"%1\" is not a target (clip, playhead, edit_point)")
+                        .arg(target));
         },
         m.presets);
     parseList<PluginScriptDef>(

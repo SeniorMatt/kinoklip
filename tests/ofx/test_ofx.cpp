@@ -265,6 +265,64 @@ private slots:
         QVERIFY(plugSymbol<int (*)()>("kkTestChangedCount")() >= 3);
     }
 
+    void aTransitionContextPluginIsATransitionOfTheEffectsLibrary()
+    {
+        OfxRegistry& reg = OfxRegistry::instance();
+        const QString dir = m_dir.filePath(QStringLiteral("transition"));
+        linkBundles(dir, {QStringLiteral("KkTestTransition")});
+        reg.setSearchDirs({dir});
+        reg.setCacheFile(m_dir.filePath(QStringLiteral("cache-transition.json")));
+        QFile::remove(m_dir.filePath(QStringLiteral("cache-transition.json")));
+        reg.reload();
+        const QString id = QStringLiteral("ofx:org.kinoklip.test.Dissolve");
+        const auto plugin = reg.plugin(id);
+        QVERIFY(plugin);
+        QVERIFY(plugin->info.isTransition());
+        const EffectDescriptor* d = EffectRegistry::instance().find(id);
+        QVERIFY(d);
+        QCOMPARE(int(d->category), int(EffectCategory::Transition));
+        // the progress is the host's: only the plugin's own controls are listed
+        QCOMPARE(d->params.size(), 1);
+        QCOMPARE(d->params[0].key, QString("softness"));
+        // the two pictures and the progress reach the plugin
+        QString error;
+        auto inst = ofx::Instance::create(plugin->bundleInfo(), plugin->info.index, &error);
+        QVERIFY2(inst, qPrintable(error));
+        Picture from(4, 2), to(4, 2);
+        for (size_t i = 0; i < to.px.size(); i += 4) {
+            to.px[i] = 1.0f;
+            to.px[i + 1] = 0.0f;
+            to.px[i + 2] = 0.0f;
+        }
+        ofx::ParamValue progress;
+        progress.v = {0.25};
+        QVERIFY(inst->setValue(QStringLiteral("Transition"), progress));
+        std::vector<float> dst(from.px.size(), -1.f);
+        QCOMPARE(inst->render(argsFor(from), from.px.data(), dst.data(), &error, to.px.data()),
+            ofx::RenderResult::Rendered);
+        QVERIFY(std::abs(dst[0] - (0.2f * 0.75f + 0.25f)) < 1e-6f); // red: from 0.2, to 1.0
+        QVERIFY(std::abs(dst[1] - 0.4f * 0.75f) < 1e-6f); // green: from 0.4, to 0
+        useGoodPlugin();
+    }
+
+    void theRegionOfDefinitionTellsHowFarAnEffectGrowsPastTheClip()
+    {
+        const auto plugin = OfxRegistry::instance().plugin(kGain);
+        QVERIFY(plugin);
+        QString error;
+        auto inst = ofx::Instance::create(plugin->bundleInfo(), plugin->info.index, &error);
+        QVERIFY2(inst, qPrintable(error));
+        double rod[4] = {};
+        // the default: the plugin has no opinion, the output is the clip's rectangle
+        QVERIFY(!inst->regionOfDefinition(0, 25, 200, 100, rod));
+        QVERIFY(inst->setValue(QStringLiteral("steps"), number(4)));
+        QVERIFY(inst->regionOfDefinition(0, 25, 200, 100, rod));
+        QCOMPARE(rod[0], -30.0);
+        QCOMPARE(rod[1], -30.0);
+        QCOMPARE(rod[2], 230.0);
+        QCOMPARE(rod[3], 130.0);
+    }
+
     void aKeyframedParameterIsReadAtTheFrameBeingRendered()
     {
         const auto plugin = OfxRegistry::instance().plugin(kGain);
@@ -652,6 +710,75 @@ private slots:
             qInfo("did not render: %s", qPrintable(failures.join(QStringLiteral("; "))));
         // A few effects need what this host does not give (a second input, a region larger than the clip).
         QVERIFY2(failures.size() <= rendered / 10, qPrintable(failures.join(QLatin1Char('\n'))));
+    }
+
+    // ---- G'MIC-OFX (skipped when it is not built: scripts/build_gmic_ofx.sh, KK_OFX_GMIC_DIR) ----
+
+    static QString gmicDir()
+    {
+        QStringList candidates;
+        if (qEnvironmentVariableIsSet("KK_OFX_GMIC_DIR"))
+            candidates << qEnvironmentVariable("KK_OFX_GMIC_DIR");
+        candidates << QStringLiteral("/usr/OFX/Plugins") << QStringLiteral("/usr/local/OFX/Plugins");
+        for (const QString& c : candidates) {
+            if (QFileInfo(c + QStringLiteral("/GMIC.ofx.bundle")).isDir())
+                return c;
+        }
+        return {};
+    }
+
+    void gmicIsDescribedAndAFewFiltersRender()
+    {
+        const QString dir = gmicDir();
+        if (dir.isEmpty())
+            QSKIP("G'MIC-OFX is not built here (scripts/build_gmic_ofx.sh, KK_OFX_GMIC_DIR)");
+        OfxRegistry& reg = OfxRegistry::instance();
+        reg.setSearchDirs({dir});
+        reg.setCacheFile(m_dir.filePath(QStringLiteral("cache-gmic.json")));
+        QFile::remove(m_dir.filePath(QStringLiteral("cache-gmic.json")));
+        reg.setProbeTimeoutMs(300000);
+        reg.reload();
+        const OfxBundleEntry* gmic
+            = reg.bundle(QFileInfo(dir + QStringLiteral("/GMIC.ofx.bundle")).absoluteFilePath());
+        QVERIFY(gmic);
+        QVERIFY2(!gmic->bad, qPrintable(gmic->reason));
+        const QStringList effects = miscEffects();
+        qInfo("G'MIC-OFX: %d plugins in the bundle, %d effects offered",
+            int(gmic->info.plugins.size()), int(effects.size()));
+        QVERIFY2(effects.size() >= 20, qPrintable(QString::number(effects.size())));
+        // a few filters run with their defaults and give a finite picture of the same size
+        Picture src(64, 48);
+        for (size_t y = 0; y < size_t(src.h); ++y)
+            for (size_t x = 0; x < size_t(src.w); ++x)
+                src.px[(y * size_t(src.w) + x) * 4] = float(x) / float(src.w);
+        int rendered = 0, tried = 0;
+        QStringList failures;
+        for (const QString& id : effects) {
+            if (tried >= 6)
+                break;
+            const auto p = reg.plugin(id);
+            QString error;
+            auto inst = ofx::Instance::create(p->bundleInfo(), p->info.index, &error);
+            if (!inst) {
+                failures << id + QStringLiteral(": ") + error;
+                continue;
+            }
+            ++tried;
+            std::vector<float> dst(src.px.size(), 0.f);
+            const ofx::RenderResult r = inst->render(argsFor(src, 0), src.px.data(), dst.data(), &error);
+            if (r == ofx::RenderResult::Failed) {
+                failures << id + QStringLiteral(": ") + error;
+                continue;
+            }
+            if (r == ofx::RenderResult::Rendered) {
+                for (float v : dst)
+                    QVERIFY2(std::isfinite(v), qPrintable(id));
+            }
+            ++rendered;
+        }
+        qInfo("G'MIC-OFX: %d of %d filters rendered; %s", rendered, tried,
+            qPrintable(failures.join(QStringLiteral("; "))));
+        QVERIFY2(rendered >= 3, qPrintable(failures.join(QLatin1Char('\n'))));
     }
 
     void theRenderCacheKeyChangesWithThePlugins()

@@ -64,6 +64,11 @@ struct NodeTypeInfo
 [[nodiscard]] const QVector<NodeTypeInfo>& nodeTypes();
 /// Node type @p type, or nullptr.
 [[nodiscard]] const NodeTypeInfo* nodeType(const QString& type);
+/// Rebuilds the catalogue from the node registry: call it after plugins were reloaded or
+/// scanned (their effect nodes come and go). Pointers from nodeType() are invalid afterwards.
+void refreshCatalogue();
+/// Name of the folder of the nodes of plugin effects (native plugins and OpenFX), last in the list.
+[[nodiscard]] QString pluginsCategory();
 /// Library folders in display order.
 [[nodiscard]] QStringList categories();
 /// The node types of the node editor's tool bar, in order (Background, Text, Merge, ...).

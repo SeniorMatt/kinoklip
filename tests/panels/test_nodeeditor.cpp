@@ -12,6 +12,7 @@
 #include "ui/comp/CompAdapter.h"
 #include "ui/comp/CompSession.h"
 #include "ui/comp/NodeEditor.h"
+#include "plugins/PluginRegistry.h"
 #include "ui/comp/NodeLibrary.h"
 
 #include <QApplication>
@@ -22,6 +23,8 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMouseEvent>
+#include <QTemporaryDir>
+#include <QTreeWidget>
 #include <QTest>
 #include <QUndoStack>
 
@@ -118,6 +121,44 @@ private slots:
         f.project.undo();
         QVERIFY(!f.clip(f.clipId)->composition);
         QCOMPARE(f.comp().nodes.size(), 2);
+    }
+
+    void pluginNodesHaveAFolderThatFollowsReloads()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        plugins::PluginRegistry& reg = plugins::PluginRegistry::instance();
+        reg.setDirectories({}, dir.filePath(QStringLiteral("user")));
+        reg.reload();
+        Fixture f;
+        NodeLibraryPanel panel(f.session.get());
+        const auto folderNamed = [&panel](const QString& name) -> QTreeWidgetItem* {
+            for (int i = 0; i < panel.tree()->topLevelItemCount(); ++i)
+                if (panel.tree()->topLevelItem(i)->text(0) == name)
+                    return panel.tree()->topLevelItem(i);
+            return nullptr;
+        };
+        const QString folderName = compadapter::pluginsCategory();
+        QVERIFY(!folderNamed(folderName));
+        const QString example = QFileInfo(QStringLiteral(__FILE__)).absolutePath()
+            + QStringLiteral("/../../plugins/examples/dev.kinoklip.invert");
+        QString error;
+        QVERIFY2(reg.install(example, &error), qPrintable(error)); // emits changed()
+        QTreeWidgetItem* folder = folderNamed(folderName);
+        QVERIFY(folder);
+        QVERIFY(folder->childCount() >= 1);
+        QCOMPARE(folder, panel.tree()->topLevelItem(
+                             panel.tree()->topLevelItemCount() - 2)); // before Modifiers
+        QVERIFY(folder->child(0)->data(0, Qt::UserRole + 1).toString().startsWith(
+            QStringLiteral("fx:plugin:")));
+        // the search keeps working after a rebuild, and Select Node lists the same node
+        panel.setFilter(QStringLiteral("invert"));
+        reg.reload();
+        QVERIFY(folderNamed(folderName));
+        QVERIFY(!folderNamed(folderName)->isHidden());
+        SelectNodePopup popup(f.session.get());
+        QVERIFY(!SelectNodePopup::matches(QStringLiteral("invert")).isEmpty());
+        QVERIFY(reg.uninstall(QStringLiteral("dev.kinoklip.invert"), &error));
     }
 
     void selectNodePopupAddsAfterSelected()

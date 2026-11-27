@@ -24,6 +24,10 @@ on:
         type: choice
         options: [none, quick, full]
         default: quick
+      gmic:
+        description: "Also build G'MIC-OFX for the pack test of test_ofx (slow: gmic.cpp takes a long time)"
+        type: boolean
+        default: false
       publish:
         description: "Replace the files of the rolling dev pre-release with this build"
         type: boolean
@@ -117,6 +121,15 @@ jobs:
           scripts/build_openfx_misc.sh "$GITHUB_WORKSPACE/ofx-misc" "$KK_JOBS"
           echo "KK_OFX_MISC_DIR=$GITHUB_WORKSPACE/ofx-misc" >> "$GITHUB_ENV"
 
+      - name: Build G'MIC-OFX (pack test of test_ofx only, not bundled)
+        if: ${{ inputs.gmic }}
+        continue-on-error: true
+        run: |
+          apt-get install -y --no-install-recommends libpng-dev libjpeg-dev libtiff-dev zlib1g-dev
+          scripts/build_gmic_ofx.sh "$GITHUB_WORKSPACE/ofx-gmic" 2
+          echo "KK_OFX_GMIC_DIR=$GITHUB_WORKSPACE/ofx-gmic" >> "$GITHUB_ENV"
+          du -sh "$GITHUB_WORKSPACE/ofx-gmic/GMIC.ofx.bundle" | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Build and package
         run: |
           ccache -z
@@ -158,6 +171,8 @@ jobs:
           # Skipped: expect the Arch build's KDE Frameworks / Breeze / FreeType (the colour-scheme list and
           # icon names of Debian's KF6 differ, title pixels and text widths differ, still-image backend order differs).
           SKIP='^(test_theme|test_translations|test_formats|test_titlelayers|test_textfit)$'
+          # what the pack tests found (the numbers of the real plugin packs)
+          QT_QPA_PLATFORM=offscreen ctest --test-dir "$KK_BUILD_DIR" -R '^(test_ofx|test_pluginrender)$' -V | grep -E "openfx-misc:|G.MIC-OFX|gl-transitions rendered|SKIP" || true
           QT_QPA_PLATFORM=offscreen ctest --test-dir "$KK_BUILD_DIR" $SEL -E "$SKIP" -j2 --output-on-failure
 
       - uses: actions/upload-artifact@v4

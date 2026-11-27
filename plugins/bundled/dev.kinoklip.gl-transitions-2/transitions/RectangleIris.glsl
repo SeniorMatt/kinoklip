@@ -1,0 +1,24 @@
+// License: MIT
+// Author: martiniti
+// Description: The outgoing image shrinks into a small rectangle over a background color, then the incoming one grows from it
+// Tags: box, iris, zoom
+
+vec4 transition(vec2 uv) {
+  
+  float s = pow(2.0 * abs(progress - 0.5), 3.0);
+              
+  vec2 q = uv.xy / vec2(1.0).xy;
+  
+  vec2 bl = step(vec2(1.0 - 2.0*abs(progress - 0.5)), q + 0.25);
+  
+  vec2 tr = step(vec2(1.0 - 2.0*abs(progress - 0.5)), 1.25 - q);
+  
+  float dist = length(1.0 - bl.x * bl.y * tr.x * tr.y);
+  
+  return mix(
+    progress < 0.5 ? getFromColor(uv) : getToColor(uv),
+    u_bgcolor,
+    step(s, dist)
+  );
+  
+}

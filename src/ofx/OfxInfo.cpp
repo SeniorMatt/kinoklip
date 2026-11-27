@@ -160,13 +160,19 @@ ContextInfo ContextInfo::fromJson(const QJsonObject& o)
 
 const ContextInfo* PluginInfo::usableContext() const
 {
-    for (const char* want : {"Filter", "General"}) {
+    for (const char* want : {"Filter", "General", "Transition"}) {
         for (const ContextInfo& c : contexts) {
             if (c.usable && c.context == QLatin1String(want))
                 return &c;
         }
     }
     return nullptr;
+}
+
+bool PluginInfo::isTransition() const
+{
+    const ContextInfo* c = usableContext();
+    return c && c->context == QLatin1String("Transition");
 }
 
 QJsonObject PluginInfo::toJson() const

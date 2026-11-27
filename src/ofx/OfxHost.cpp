@@ -591,8 +591,9 @@ struct Instance::Impl
     {
         RenderArgs args;
         const float* srcFloat = nullptr;
+        const float* srcToFloat = nullptr; ///< transition context: the incoming picture
         float* dstFloat = nullptr;
-        std::vector<unsigned char> srcByte, dstByte;
+        std::vector<unsigned char> srcByte, srcToByte, dstByte;
         bool byte = false;
     };
     Current* current = nullptr;
@@ -653,6 +654,7 @@ void initHost()
         h.setS(kOfxImageEffectPropSupportedComponents, kOfxImageComponentRGBA, 0);
         h.setS(kOfxImageEffectPropSupportedContexts, kOfxImageEffectContextFilter, 0);
         h.setS(kOfxImageEffectPropSupportedContexts, kOfxImageEffectContextGeneral, 1);
+        h.setS(kOfxImageEffectPropSupportedContexts, kOfxImageEffectContextTransition, 2);
         h.setS(kOfxImageEffectPropSupportedPixelDepths, kOfxBitDepthFloat, 0);
         h.setS(kOfxImageEffectPropSupportedPixelDepths, kOfxBitDepthByte, 1);
         h.setI(kOfxImageEffectPropSetableFrameRate, 0);
@@ -894,7 +896,8 @@ Described* describe(Binary& bin, int idx)
         ContextInfo ci;
         ci.context = stripPrefix(ss(ctxId), "OfxImageEffectContext");
         int descIdx = -1;
-        if (ci.context != QLatin1String("Filter") && ci.context != QLatin1String("General")) {
+        if (ci.context != QLatin1String("Filter") && ci.context != QLatin1String("General")
+            && ci.context != QLatin1String("Transition")) {
             ci.whyNot = QStringLiteral("the %1 context is not supported yet").arg(ci.context);
             info.contexts.append(ci);
             d->contextIndex.push_back(-1);
@@ -914,7 +917,7 @@ Described* describe(Binary& bin, int idx)
             d->contextIndex.push_back(-1);
             continue;
         }
-        bool hasSource = false, hasOutput = false;
+        bool hasSource = false, hasOutput = false, hasFrom = false, hasTo = false;
         QStringList blockers;
         for (const auto& clip : ctxEffect->clips) {
             ClipInfo c;
@@ -927,6 +930,10 @@ Described* describe(Binary& bin, int idx)
                 hasSource = true;
             else if (clip->name == kOfxImageEffectOutputClipName)
                 hasOutput = true;
+            else if (clip->name == kOfxImageEffectTransitionSourceFromClipName)
+                hasFrom = true;
+            else if (clip->name == kOfxImageEffectTransitionSourceToClipName)
+                hasTo = true;
             else if (!c.optional)
                 blockers.append(c.name);
         }
@@ -935,10 +942,14 @@ Described* describe(Binary& bin, int idx)
             readParamInfo(*p, &pi);
             ci.params.append(pi);
         }
-        ci.usable = hasOutput && (hasSource || ci.context == QLatin1String("General"))
+        const bool transition = ci.context == QLatin1String("Transition");
+        ci.usable = hasOutput
+            && (transition ? (hasFrom && hasTo) : (hasSource || ci.context == QLatin1String("General")))
             && blockers.isEmpty();
         if (!hasOutput)
             ci.whyNot = QStringLiteral("no Output clip");
+        else if (transition && !(hasFrom && hasTo))
+            ci.whyNot = QStringLiteral("no SourceFrom and SourceTo clips");
         else if (!hasSource && ci.context == QLatin1String("Filter"))
             ci.whyNot = QStringLiteral("no Source clip");
         else if (!blockers.isEmpty())
@@ -1325,7 +1336,9 @@ OfxStatus ieClipGetImage(OfxImageClipHandle c, OfxTime, const OfxRectD*, OfxProp
     std::lock_guard<std::mutex> lock(impl->stateMutex);
     Instance::Impl::Current* cur = impl->current;
     const bool isOutput = c->name == kOfxImageEffectOutputClipName;
-    const bool isSource = c->name == kOfxImageEffectSimpleSourceClipName;
+    const bool isTo = c->name == kOfxImageEffectTransitionSourceToClipName;
+    const bool isSource = c->name == kOfxImageEffectSimpleSourceClipName
+        || c->name == kOfxImageEffectTransitionSourceFromClipName || isTo;
     if (!cur || !(isOutput || isSource))
         return kOfxStatFailed; // not connected: the plugin carries on without
     const RenderArgs& a = cur->args;
@@ -1333,9 +1346,13 @@ OfxStatus ieClipGetImage(OfxImageClipHandle c, OfxTime, const OfxRectD*, OfxProp
     const int bytesPerPixel = cur->byte ? 4 : 16;
     void* data = nullptr;
     if (cur->byte)
-        data = isOutput ? static_cast<void*>(cur->dstByte.data()) : static_cast<void*>(cur->srcByte.data());
+        data = isOutput ? static_cast<void*>(cur->dstByte.data())
+            : isTo      ? static_cast<void*>(cur->srcToByte.data())
+                        : static_cast<void*>(cur->srcByte.data());
     else
-        data = isOutput ? static_cast<void*>(cur->dstFloat) : const_cast<float*>(cur->srcFloat);
+        data = isOutput ? static_cast<void*>(cur->dstFloat)
+            : isTo      ? const_cast<float*>(cur->srcToFloat)
+                        : const_cast<float*>(cur->srcFloat);
     const int x1 = int(std::lround(a.originX * a.scale));
     const int y1 = int(std::lround(a.originY * a.scale));
     img->setS(kOfxPropType, "OfxTypeImage");
@@ -1353,7 +1370,7 @@ OfxStatus ieClipGetImage(OfxImageClipHandle c, OfxTime, const OfxRectD*, OfxProp
     }
     img->setI(kOfxImagePropRowBytes, a.width * bytesPerPixel);
     img->setS(kOfxImagePropField, kOfxImageFieldNone);
-    img->setS(kOfxImagePropUniqueIdentifier, isOutput ? "kk-output" : "kk-source");
+    img->setS(kOfxImagePropUniqueIdentifier, isOutput ? "kk-output" : isTo ? "kk-source-to" : "kk-source");
     img->setP("kk.impl", impl);
     impl->images.insert(img);
     *out = img;
@@ -1599,7 +1616,9 @@ std::unique_ptr<Instance> Instance::create(const BundleInfo& bundle, int pluginI
         c->effect = &im.effect;
         c->props = sc->props;
         const bool connected = sc->name == kOfxImageEffectSimpleSourceClipName
-            || sc->name == kOfxImageEffectOutputClipName;
+            || sc->name == kOfxImageEffectOutputClipName
+            || sc->name == kOfxImageEffectTransitionSourceFromClipName
+            || sc->name == kOfxImageEffectTransitionSourceToClipName;
         c->props.setS(kOfxPropType, kOfxTypeClip);
         c->props.setI(kOfxImageClipPropConnected, connected ? 1 : 0);
         c->props.setS(kOfxImageEffectPropPixelDepth, im.chosenDepth);
@@ -1625,7 +1644,8 @@ std::unique_ptr<Instance> Instance::create(const BundleInfo& bundle, int pluginI
     return inst;
 }
 
-RenderResult Instance::render(const RenderArgs& a, const float* src, float* dst, QString* error)
+RenderResult Instance::render(
+    const RenderArgs& a, const float* src, float* dst, QString* error, const float* srcTo)
 {
     Impl& im = *d;
     auto fail = [&](const QString& why) {
@@ -1657,14 +1677,20 @@ RenderResult Instance::render(const RenderArgs& a, const float* src, float* dst,
     const size_t pixels = size_t(a.width) * size_t(a.height);
     if (cur.byte) {
         cur.srcByte.resize(pixels * 4);
+        cur.srcToByte.resize(pixels * 4);
         cur.dstByte.assign(pixels * 4, 0);
-        if (src) {
+        const auto toBytes = [pixels](const float* from, std::vector<unsigned char>& to) {
+            if (!from)
+                return;
             for (size_t k = 0; k < pixels * 4; ++k)
-                cur.srcByte[k] = static_cast<unsigned char>(
-                    std::lround(std::clamp(src[k], 0.0f, 1.0f) * 255.0f));
-        }
+                to[k] = static_cast<unsigned char>(
+                    std::lround(std::clamp(from[k], 0.0f, 1.0f) * 255.0f));
+        };
+        toBytes(src, cur.srcByte);
+        toBytes(srcTo, cur.srcToByte);
     } else {
         cur.srcFloat = src;
+        cur.srcToFloat = srcTo;
         cur.dstFloat = dst;
     }
     {
@@ -1729,6 +1755,50 @@ RenderResult Instance::render(const RenderArgs& a, const float* src, float* dst,
             dst[k] = cur.dstByte[k] / 255.0f;
     }
     return result;
+}
+
+bool Instance::regionOfDefinition(
+    double time, double fps, double width, double height, double out[4])
+{
+    Impl& im = *d;
+    if (width <= 0 || height <= 0)
+        return false;
+    std::lock_guard<std::mutex> instanceLock(im.renderMutex);
+    Impl::Current cur;
+    cur.args.time = time;
+    cur.args.fps = fps;
+    cur.args.width = int(std::ceil(width));
+    cur.args.height = int(std::ceil(height));
+    cur.args.projectWidth = width;
+    cur.args.projectHeight = height;
+    cur.byte = im.chosenDepth == kOfxBitDepthByte;
+    {
+        std::lock_guard<std::mutex> lock(im.stateMutex);
+        im.current = &cur;
+    }
+    OfxPropertySetStruct& pr = im.effect.props;
+    pr.setD(kOfxImageEffectPropProjectSize, width, 0);
+    pr.setD(kOfxImageEffectPropProjectSize, height, 1);
+    pr.setD(kOfxImageEffectPropProjectExtent, width, 0);
+    pr.setD(kOfxImageEffectPropProjectExtent, height, 1);
+    pr.setD(kOfxImageEffectPropFrameRate, fps);
+    OfxPropertySetStruct in, res;
+    in.setD(kOfxPropTime, time);
+    in.setD(kOfxImageEffectPropRenderScale, 1.0, 0);
+    in.setD(kOfxImageEffectPropRenderScale, 1.0, 1);
+    for (int k = 0; k < 4; ++k)
+        res.setD(kOfxImageEffectPropRegionOfDefinition, 0.0, k);
+    const OfxStatus st
+        = callPlugin(im.plugin, kOfxImageEffectActionGetRegionOfDefinition, &im.effect, &in, &res);
+    {
+        std::lock_guard<std::mutex> lock(im.stateMutex);
+        im.current = nullptr;
+    }
+    if (st != kOfxStatOK)
+        return false; // kOfxStatReplyDefault or a failure: the rectangle of the source
+    for (int k = 0; k < 4; ++k)
+        out[k] = res.getD(kOfxImageEffectPropRegionOfDefinition, 0.0, k);
+    return out[2] > out[0] && out[3] > out[1];
 }
 
 } // namespace kk::ofx

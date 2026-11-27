@@ -266,6 +266,30 @@ void setPresetApplier(PresetApplier applier)
     presetApplier() = std::move(applier);
 }
 
+namespace {
+EdgePresetApplier& edgePresetApplier()
+{
+    static EdgePresetApplier applier;
+    return applier;
+}
+} // namespace
+
+void setEdgePresetApplier(EdgePresetApplier applier)
+{
+    edgePresetApplier() = std::move(applier);
+}
+
+bool isEditPointPreset(const QString& descriptorId)
+{
+    const plugins::PluginPresetDef* p = plugins::PluginRegistry::instance().findPreset(descriptorId);
+    return p && p->target == plugins::PresetTarget::EditPoint;
+}
+
+int applyPresetAtEdge(Project& project, quint64 clipId, bool head, const QString& presetId)
+{
+    return edgePresetApplier() ? edgePresetApplier()(project, clipId, head, presetId) : 0;
+}
+
 bool isPresetId(const QString& descriptorId)
 {
     return descriptorId.startsWith(QLatin1String(plugins::kIdPrefix))

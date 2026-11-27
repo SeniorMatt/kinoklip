@@ -114,7 +114,7 @@ Effect item:
 Transition item: the same without `entry` and `padding_px`; `group` is one of `dissolve`, `iris`,
 `motion`, `shape`, `wipe` or your own text.
 
-Preset item: `target` (`clip`, default, or `playhead`), `file` (`.json`), `group` (a folder name
+Preset item: `target` (`clip`, default, `playhead` or `edit_point`), `file` (`.json`), `group` (a folder name
 in the Presets list; default: the plugin's name).
 
 Script item: `file` (`.py`), `interpreter` (`python3`, the only one), `permissions` (list, as above).
@@ -320,6 +320,11 @@ Transitions have no `uTime` or `uFrame`. The result is composited over the track
 built-in transition. Worked example: `plugins/examples/dev.kinoklip.circle-reveal`; a port with a
 colour parameter: `dev.kinoklip.dip-to-color`.
 
+Kinoklip bundles the MIT-licensed gl-transitions as `plugins/bundled/dev.kinoklip.gl-transitions` and `-2`
+(made by `scripts/convert_gl_transitions.py`, which also shows the conversion rules for your own
+files: `uniform` lines removed, each use of `x` becomes `u_x`, a `vec2` / `vec3` / `ivec2` becomes one
+number parameter per component `xX`, `xY`, a colour `vec3` / `vec4` becomes a colour parameter).
+
 To use a gl-transitions shader: put its code in the `.glsl` file, delete its `uniform`
 declarations and rename each uniform `x` to `u_x`, declare it in `params` with the default from
 the comment (`// = 0.5`), keep the licence notice.
@@ -355,11 +360,17 @@ fails nothing is changed.
 | `$duration` | the clip's length in frames |
 | `$playhead` | the playhead's timeline frame |
 | `$last_effect` | the id of the effect the most recent `effect.add` of this preset made |
+| `$left`, `$right`, `$edit` | `edit_point` presets: the clip that ends at the cut, the clip that starts at it, the cut's timeline frame (`$clip`, `$start`, `$end`, `$duration` are those of the right clip, else the left) |
 
   A string that is exactly a placeholder becomes a number, and may carry an offset: `"$end-24"`,
   `"$start+12"`. Inside longer text the number is written in: `"radius=$duration"`.
 - `target`: `clip` runs the recipe once for every selected (or dropped-on) clip; `playhead` runs it
-  once with `$playhead` (a title or generator added at the playhead).
+  once with `$playhead` (a title or generator added at the playhead); `edit_point` runs it at a
+  cut between two clips (a transition preset: `{"command": "transition.add", "args": {"clip":
+  "$right", "edge": "head", "type": "cross_dissolve", "duration": 12}}`). Double-click applies it
+  at the edge of each selected clip that is nearest the playhead; dropping it on a clip uses its
+  head or tail, whichever half is under the pointer. A recipe that uses `$left` or `$right` where
+  the clip is missing changes nothing and says so. Example: `plugins/bundled/dev.kinoklip.transition-presets`.
 - A preset that changes a plugin effect: `"type": "plugin:com.example.warm/warm_look"`.
 - Animation packs (what panels like Animation Composer do) are presets that put keyframes on
   `opacity`, `posX`, `posY`, `zoomX`, `zoomY`, `rotation` with `keyframe.set`; effect stacks are

@@ -747,6 +747,34 @@ private slots:
         QVERIFY(error.contains("commands"));
     }
 
+    void editPointRecipeKnowsBothSidesOfTheCut()
+    {
+        const QJsonObject recipe = QJsonDocument::fromJson(R"({"commands":[
+            {"command":"transition.add","args":{"clip":"$right","edge":"head","duration":"$edit"}},
+            {"command":"clip.set","args":{"clip":"$left","note":"cut at $edit"}}]})")
+                                       .object();
+        RecipeTarget t;
+        t.edgePoint = true;
+        t.left = 5;
+        t.right = 6;
+        t.edit = 240;
+        QString error;
+        const QVector<RecipeStep> steps = expandRecipe(recipe, t, &error);
+        QCOMPARE(steps.size(), 2);
+        QCOMPARE(steps[0].args["clip"].toInt(), 6);
+        QCOMPARE(steps[1].args["clip"].toInt(), 5);
+        QCOMPARE(steps[0].args["duration"].toInt(), 240);
+        QCOMPARE(steps[1].args["note"].toString(), QString("cut at 240"));
+        t.left = 0; // the first clip of a track: nothing on the left
+        QVERIFY(expandRecipe(recipe, t, &error).isEmpty());
+        QVERIFY2(error.contains("left"), qPrintable(error));
+        // the manifest accepts the target
+        const ParseResult r = parseManifest(manifestJson(QStringLiteral(
+            R"(,"presets":[{"id":"p","name":"P","file":"p.json","target":"edit_point"}])")));
+        QVERIFY2(r.ok, qPrintable(r.problems.isEmpty() ? QString() : r.problems[0].text()));
+        QVERIFY(r.manifest.presets[0].target == PresetTarget::EditPoint);
+    }
+
     // ---- Scripts ----
 
     void scriptRunsThroughTheBridgeAndPermissionsAreTheExecutors()

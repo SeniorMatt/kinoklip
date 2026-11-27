@@ -602,8 +602,10 @@ QMenu* EffectsLibraryPanel::createContextMenu(const QString& descriptorId)
     }
     if (effectactions::isPresetId(descriptorId)) {
         auto* menu = new QMenu(this);
-        QAction* apply = menu->addAction(
-            tr("Apply to Selected Clips"), this, [this, descriptorId] { activate(descriptorId); });
+        QAction* apply = menu->addAction(effectactions::isEditPointPreset(descriptorId)
+                ? tr("Apply to Selected Edit Point")
+                : tr("Apply to Selected Clips"),
+            this, [this, descriptorId] { activate(descriptorId); });
         apply->setObjectName(QStringLiteral("ApplyLibraryEntry"));
         return menu;
     }

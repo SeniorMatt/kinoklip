@@ -1,0 +1,22 @@
+{
+  "commands": [
+    {
+      "command": "transition.add",
+      "args": {
+        "clip": "$right",
+        "edge": "head",
+        "type": "dip_to_color",
+        "duration": 24
+      }
+    },
+    {
+      "command": "transition.set",
+      "args": {
+        "clip": "$right",
+        "edge": "head",
+        "key": "color",
+        "value": "#000000"
+      }
+    }
+  ]
+}

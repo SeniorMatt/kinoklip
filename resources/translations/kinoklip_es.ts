@@ -18440,6 +18440,10 @@ Gracias por ver</translation>
         <translation>Elimina el archivo del macro guardado; los títulos ya en la línea de tiempo no cambian</translation>
     </message>
     <message>
+        <source>Apply to Selected Edit Point</source>
+        <translation>Aplicar al punto de edición seleccionado</translation>
+    </message>
+    <message>
         <source>Apply to Selected Clips</source>
         <translation>Aplicar a los clips seleccionados</translation>
     </message>
@@ -28724,6 +28728,10 @@ Automática: Completa, pasando a Mitad solo mientras la reproducción no pueda s
         <translation>El preajuste no está disponible (su complemento falta o está desactivado).</translation>
     </message>
     <message>
+        <source>Select a clip next to the edit point to apply this preset to.</source>
+        <translation>Selecciona un clip junto al punto de edición al que aplicar este preset.</translation>
+    </message>
+    <message>
         <source>Select a clip to apply this preset to.</source>
         <translation>Seleccione un clip al que aplicar este preajuste.</translation>
     </message>
@@ -37935,6 +37943,10 @@ Abrir un clip multicámara del panel de medios o mover el cabezal de reproducci�
 </context>
 <context>
     <name>kk::compadapter</name>
+    <message>
+        <source>Plugins</source>
+        <translation>Complementos</translation>
+    </message>
     <message>
         <source>Reset Composition</source>
         <translation>Restablecer composición</translation>

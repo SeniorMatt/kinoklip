@@ -1,0 +1,23 @@
+// Author: martiniti
+// License: MIT
+// Description: A rectangle grows from the center to cover the outgoing image, then shrinks to reveal the incoming one
+// Tags: box, shape, iris
+
+vec4 transition(vec2 p) {
+  float s = pow(2.0 * abs(progress - 0.5), 3.0);
+  
+   vec2 sq = p.xy / vec2(1.0).xy;
+   
+    vec2 bl = step(vec2(abs(1. - 2.*progress)), sq + .25);
+    float dist = bl.x * bl.y;
+
+    vec2 tr = step(vec2(abs(1. - 2.*progress)), 1.25-sq);
+    dist *= 1. * tr.x * tr.y;
+  
+  return mix(
+    progress < 0.5 ? getFromColor(p) : getToColor(p),
+    u_bgcolor,
+    step(s, dist)
+  );
+  
+}

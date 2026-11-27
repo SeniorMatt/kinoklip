@@ -88,8 +88,12 @@ struct PluginInfo
     QVector<ContextInfo> contexts;
     QString error; ///< why describing failed (the plugin is not usable)
 
-    /// The context Kinoklip runs the plugin in: Filter first, then General; null when none.
+    /// The context Kinoklip runs the plugin in: Filter first, then General, then Transition;
+    /// null when none.
     [[nodiscard]] const ContextInfo* usableContext() const;
+    /// True when that context is the Transition context (the plugin is then a transition of the
+    /// Effects library, not an effect).
+    [[nodiscard]] bool isTransition() const;
     [[nodiscard]] QJsonObject toJson() const;
     [[nodiscard]] static PluginInfo fromJson(const QJsonObject& o);
 };
@@ -170,8 +174,17 @@ public:
 
     /// Renders @p src (RGBA float, premultiplied, rows bottom to top, width x height) into
     /// @p dst (same layout). @p src may be null when the plugin takes no input.
-    [[nodiscard]] RenderResult render(
-        const RenderArgs& args, const float* src, float* dst, QString* error);
+    /// In the Transition context @p src is the outgoing picture (SourceFrom) and @p srcTo the
+    /// incoming one (SourceTo); the plugin's "Transition" parameter is the progress.
+    [[nodiscard]] RenderResult render(const RenderArgs& args, const float* src, float* dst,
+        QString* error, const float* srcTo = nullptr);
+
+    /// The region of definition the plugin gives its output for a source of @p width x @p height
+    /// canonical pixels at its origin (OFX getRegionOfDefinition), as x1, y1, x2, y2 in @p out.
+    /// False when the plugin has no opinion (the output is the source's rectangle). Effects that
+    /// grow the picture (blurs, glows) return a larger rectangle.
+    [[nodiscard]] bool regionOfDefinition(
+        double time, double fps, double width, double height, double out[4]);
 
     /// The last message the plugin showed (message suite), for the Plugins page.
     [[nodiscard]] QString lastMessage() const;

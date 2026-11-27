@@ -1,0 +1,13 @@
+{
+  "commands": [
+    {
+      "command": "transition.add",
+      "args": {
+        "clip": "$right",
+        "edge": "head",
+        "type": "cross_dissolve",
+        "duration": 12
+      }
+    }
+  ]
+}

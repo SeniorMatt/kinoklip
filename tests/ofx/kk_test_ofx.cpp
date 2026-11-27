@@ -38,7 +38,7 @@ double g_lastTime = -1;
 struct Instance
 {
     OfxParamHandle gain = nullptr, invert = nullptr, mode = nullptr, offset = nullptr,
-                   tint = nullptr;
+                   tint = nullptr, steps = nullptr;
     OfxImageClipHandle source = nullptr, output = nullptr;
 };
 
@@ -180,6 +180,7 @@ OfxStatus createInstance(OfxImageEffectHandle effect)
     g_param->paramGetHandle(set, "mode", &inst->mode, nullptr);
     g_param->paramGetHandle(set, "offset", &inst->offset, nullptr);
     g_param->paramGetHandle(set, "tint", &inst->tint, nullptr);
+    g_param->paramGetHandle(set, "steps", &inst->steps, nullptr);
     g_effect->clipGetHandle(effect, kOfxImageEffectSimpleSourceClipName, &inst->source, nullptr);
     g_effect->clipGetHandle(effect, kOfxImageEffectOutputClipName, &inst->output, nullptr);
     OfxPropertySetHandle p;
@@ -210,6 +211,27 @@ OfxStatus isIdentity(OfxImageEffectHandle effect, OfxPropertySetHandle in, OfxPr
         return kOfxStatOK;
     }
     return kOfxStatReplyDefault;
+}
+
+// Steps above 1 make the output larger than the source: 10 pixels more on every side per step
+// (like a blur that spreads past the edge of the clip).
+OfxStatus regionOfDefinition(OfxImageEffectHandle effect, OfxPropertySetHandle out)
+{
+    Instance* inst = instanceOf(effect);
+    int steps = 1;
+    g_param->paramGetValue(inst->steps, &steps);
+    if (steps <= 1)
+        return kOfxStatReplyDefault;
+    OfxPropertySetHandle props;
+    g_effect->getPropertySet(effect, &props);
+    double size[2] = {0, 0};
+    g_prop->propGetDoubleN(props, kOfxImageEffectPropProjectSize, 2, size);
+    const double grow = 10.0 * (steps - 1);
+    g_prop->propSetDouble(out, kOfxImageEffectPropRegionOfDefinition, 0, -grow);
+    g_prop->propSetDouble(out, kOfxImageEffectPropRegionOfDefinition, 1, -grow);
+    g_prop->propSetDouble(out, kOfxImageEffectPropRegionOfDefinition, 2, size[0] + grow);
+    g_prop->propSetDouble(out, kOfxImageEffectPropRegionOfDefinition, 3, size[1] + grow);
+    return kOfxStatOK;
 }
 
 OfxStatus render(OfxImageEffectHandle effect, OfxPropertySetHandle in)
@@ -262,8 +284,110 @@ OfxStatus render(OfxImageEffectHandle effect, OfxPropertySetHandle in)
     return kOfxStatOK;
 }
 
+#ifdef KK_OFX_TRANSITION
+// The Transition context: SourceFrom and SourceTo mixed by the "Transition" parameter (0..1).
+struct TransitionInstance
+{
+    OfxParamHandle progress = nullptr;
+    OfxImageClipHandle from = nullptr, to = nullptr, output = nullptr;
+};
+
+OfxStatus transitionMain(const char* action, OfxImageEffectHandle effect, OfxPropertySetHandle in)
+{
+    OfxPropertySetHandle p;
+    g_effect->getPropertySet(effect, &p);
+    if (!std::strcmp(action, kOfxActionDescribe)) {
+        g_prop->propSetString(p, kOfxPropLabel, 0, "Kinoklip Test Dissolve");
+        g_prop->propSetString(p, kOfxImageEffectPluginPropGrouping, 0, "Kinoklip Test");
+        g_prop->propSetString(
+            p, kOfxImageEffectPropSupportedContexts, 0, kOfxImageEffectContextTransition);
+        g_prop->propSetString(p, kOfxImageEffectPropSupportedPixelDepths, 0, kOfxBitDepthFloat);
+        g_prop->propSetString(
+            p, kOfxImageEffectPluginRenderThreadSafety, 0, kOfxImageEffectRenderFullySafe);
+        return kOfxStatOK;
+    }
+    if (!std::strcmp(action, kOfxImageEffectActionDescribeInContext)) {
+        OfxPropertySetHandle c;
+        for (const char* name : {kOfxImageEffectOutputClipName,
+                 kOfxImageEffectTransitionSourceFromClipName,
+                 kOfxImageEffectTransitionSourceToClipName}) {
+            g_effect->clipDefine(effect, name, &c);
+            g_prop->propSetString(c, kOfxImageEffectPropSupportedComponents, 0, kOfxImageComponentRGBA);
+        }
+        OfxParamSetHandle set;
+        g_effect->getParamSet(effect, &set);
+        OfxPropertySetHandle pp;
+        g_param->paramDefine(set, kOfxParamTypeDouble, kOfxImageEffectTransitionParamName, &pp);
+        g_prop->propSetDouble(pp, kOfxParamPropDefault, 0, 0.0);
+        g_prop->propSetDouble(pp, kOfxParamPropMin, 0, 0.0);
+        g_prop->propSetDouble(pp, kOfxParamPropMax, 0, 1.0);
+        g_prop->propSetInt(pp, kOfxParamPropAnimates, 0, 1);
+        g_param->paramDefine(set, kOfxParamTypeDouble, "softness", &pp);
+        g_prop->propSetString(pp, kOfxPropLabel, 0, "Softness");
+        g_prop->propSetDouble(pp, kOfxParamPropDefault, 0, 0.0);
+        return kOfxStatOK;
+    }
+    if (!std::strcmp(action, kOfxActionCreateInstance)) {
+        auto* inst = new TransitionInstance;
+        OfxParamSetHandle set;
+        g_effect->getParamSet(effect, &set);
+        g_param->paramGetHandle(set, kOfxImageEffectTransitionParamName, &inst->progress, nullptr);
+        g_effect->clipGetHandle(effect, kOfxImageEffectTransitionSourceFromClipName, &inst->from, nullptr);
+        g_effect->clipGetHandle(effect, kOfxImageEffectTransitionSourceToClipName, &inst->to, nullptr);
+        g_effect->clipGetHandle(effect, kOfxImageEffectOutputClipName, &inst->output, nullptr);
+        g_prop->propSetPointer(p, kOfxPropInstanceData, 0, inst);
+        return kOfxStatOK;
+    }
+    if (!std::strcmp(action, kOfxActionDestroyInstance)) {
+        void* data = nullptr;
+        g_prop->propGetPointer(p, kOfxPropInstanceData, 0, &data);
+        delete static_cast<TransitionInstance*>(data);
+        return kOfxStatOK;
+    }
+    if (!std::strcmp(action, kOfxImageEffectActionRender)) {
+        void* data = nullptr;
+        g_prop->propGetPointer(p, kOfxPropInstanceData, 0, &data);
+        auto* inst = static_cast<TransitionInstance*>(data);
+        double time = 0, t = 0;
+        int window[4] = {0, 0, 0, 0};
+        g_prop->propGetDouble(in, kOfxPropTime, 0, &time);
+        g_prop->propGetIntN(in, kOfxImageEffectPropRenderWindow, 4, window);
+        g_param->paramGetValueAtTime(inst->progress, time, &t);
+        OfxPropertySetHandle a = nullptr, b = nullptr, o = nullptr;
+        if (g_effect->clipGetImage(inst->from, time, nullptr, &a) != kOfxStatOK
+            || g_effect->clipGetImage(inst->to, time, nullptr, &b) != kOfxStatOK
+            || g_effect->clipGetImage(inst->output, time, nullptr, &o) != kOfxStatOK)
+            return kOfxStatFailed;
+        void *ap = nullptr, *bp = nullptr, *op = nullptr;
+        int row = 0;
+        g_prop->propGetPointer(a, kOfxImagePropData, 0, &ap);
+        g_prop->propGetPointer(b, kOfxImagePropData, 0, &bp);
+        g_prop->propGetPointer(o, kOfxImagePropData, 0, &op);
+        g_prop->propGetInt(o, kOfxImagePropRowBytes, 0, &row);
+        const int width = window[2] - window[0], height = window[3] - window[1];
+        for (int y = 0; y < height; ++y) {
+            const float* fa = static_cast<const float*>(ap) + std::int64_t(y) * (row / 4);
+            const float* fb = static_cast<const float*>(bp) + std::int64_t(y) * (row / 4);
+            float* fo = static_cast<float*>(op) + std::int64_t(y) * (row / 4);
+            for (int i = 0; i < width * 4; ++i)
+                fo[i] = float(fa[i] * (1.0 - t) + fb[i] * t);
+        }
+        g_effect->clipReleaseImage(a);
+        g_effect->clipReleaseImage(b);
+        g_effect->clipReleaseImage(o);
+        ++g_renders;
+        return kOfxStatOK;
+    }
+    return kOfxStatReplyDefault;
+}
+#endif
+
 OfxStatus mainEntry(const char* action, const void* handle, OfxPropertySetHandle in, OfxPropertySetHandle out)
 {
+#ifdef KK_OFX_TRANSITION
+    if (std::strcmp(action, kOfxActionLoad))
+        return transitionMain(action, reinterpret_cast<OfxImageEffectHandle>(const_cast<void*>(handle)), in);
+#endif
     auto effect = reinterpret_cast<OfxImageEffectHandle>(const_cast<void*>(handle));
     if (!std::strcmp(action, kOfxActionLoad)) {
 #ifdef KK_OFX_CRASH
@@ -291,6 +415,8 @@ OfxStatus mainEntry(const char* action, const void* handle, OfxPropertySetHandle
     }
     if (!std::strcmp(action, kOfxImageEffectActionIsIdentity))
         return isIdentity(effect, in, out);
+    if (!std::strcmp(action, kOfxImageEffectActionGetRegionOfDefinition))
+        return regionOfDefinition(effect, out);
     if (!std::strcmp(action, kOfxImageEffectActionRender))
         return render(effect, in);
     return kOfxStatReplyDefault;
@@ -307,7 +433,11 @@ void setHost(OfxHost* host)
         host->fetchSuite(host->host, kOfxMultiThreadSuite, 1));
 }
 
+#ifdef KK_OFX_TRANSITION
+OfxPlugin g_plugin = {kOfxImageEffectPluginApi, 1, "org.kinoklip.test.Dissolve", 1, 0, setHost, mainEntry};
+#else
 OfxPlugin g_plugin = {kOfxImageEffectPluginApi, 1, "org.kinoklip.test.Gain", 1, 2, setHost, mainEntry};
+#endif
 
 } // namespace
 

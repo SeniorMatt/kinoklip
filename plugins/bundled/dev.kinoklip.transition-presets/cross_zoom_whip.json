@@ -1,0 +1,13 @@
+{
+  "commands": [
+    {
+      "command": "transition.add",
+      "args": {
+        "clip": "$right",
+        "edge": "head",
+        "type": "plugin:dev.kinoklip.gl-transitions/cross_zoom",
+        "duration": 18
+      }
+    }
+  ]
+}

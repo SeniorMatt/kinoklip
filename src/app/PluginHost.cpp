@@ -21,6 +21,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSet>
 #include <QVBoxLayout>
 
 namespace kk {
@@ -111,29 +112,97 @@ QJsonObject PluginHost::executeForScript(
     return registry.executeLive(command, args, m_target).toJson();
 }
 
+namespace {
+
+/// The edit point at the head or tail of clip @p clipId on its track.
+plugins::RecipeTarget editPointOf(const TimelineData& data, quint64 clipId, bool head,
+    qint64 playhead, bool* found)
+{
+    plugins::RecipeTarget t;
+    t.edgePoint = true;
+    t.playhead = playhead;
+    const auto loc = editops::findClip(data, clipId);
+    *found = loc.has_value();
+    if (!loc)
+        return t;
+    const TrackData& track = *data.track(loc->track);
+    const size_t index = size_t(loc->clipIndex);
+    const ClipData& c = track.clips[index];
+    const ClipData* left = nullptr;
+    const ClipData* right = nullptr;
+    if (head) {
+        right = &c;
+        if (index > 0 && track.clips[index - 1].end() == c.start)
+            left = &track.clips[index - 1];
+        t.edit = c.start;
+    } else {
+        left = &c;
+        if (index + 1 < track.clips.size() && track.clips[index + 1].start == c.end())
+            right = &track.clips[index + 1];
+        t.edit = c.end();
+    }
+    t.left = left ? qint64(left->id) : 0;
+    t.right = right ? qint64(right->id) : 0;
+    const ClipData* main = right ? right : left;
+    t.clip = qint64(main->id);
+    t.start = main->start;
+    t.end = main->start + main->duration - 1;
+    t.duration = main->duration;
+    return t;
+}
+
+} // namespace
+
+int PluginHost::applyPresetAtEdge(
+    Project& project, quint64 clipId, bool head, const QString& presetId)
+{
+    bool found = false;
+    const plugins::RecipeTarget t = editPointOf(
+        project.timeline()->data(), clipId, head, project.timeline()->playhead(), &found);
+    const plugins::PluginPresetDef* def = plugins::PluginRegistry::instance().findPreset(presetId);
+    if (!def)
+        return failPreset(tr("The preset is not available (its plugin is missing or disabled)."));
+    if (!found || def->target != plugins::PresetTarget::EditPoint)
+        return 0;
+    return runRecipe(project, presetId, {t});
+}
+
 int PluginHost::applyPreset(
     Project& project, const QVector<quint64>& clips, const QString& presetId)
 {
     plugins::PluginRegistry& registry = plugins::PluginRegistry::instance();
     const plugins::PluginPresetDef* def = registry.findPreset(presetId);
-    const auto fail = [this](const QString& message) {
-        emit presetFailed(message);
-        if (!m_quiet)
-            QMessageBox::warning(m_window, tr("Preset"), message);
-        return 0;
-    };
     if (!def)
-        return fail(tr("The preset is not available (its plugin is missing or disabled)."));
-    QString error;
-    const QJsonObject recipe = registry.presetRecipe(presetId, &error);
-    if (recipe.isEmpty())
-        return fail(error);
+        return failPreset(tr("The preset is not available (its plugin is missing or disabled)."));
 
     const TimelineData& data = project.timeline()->data();
     QVector<plugins::RecipeTarget> targets;
-    if (def->target == plugins::PresetTarget::Playhead) {
+    const int64_t playhead = project.timeline()->playhead();
+    if (def->target == plugins::PresetTarget::EditPoint) {
+        // The edge of each selected clip that is nearest the playhead (an edit point is shared
+        // by its two clips: it is applied once).
+        QSet<QPair<qint64, qint64>> seen;
+        for (const quint64 id : clips) {
+            const ClipData* clip = editops::clipById(data, id);
+            if (!clip)
+                continue;
+            const bool head = std::abs(playhead - clip->start)
+                <= std::abs(playhead - (clip->start + clip->duration));
+            bool found = false;
+            const plugins::RecipeTarget t = editPointOf(data, id, head, playhead, &found);
+            const auto loc = editops::findClip(data, id);
+            const QPair<qint64, qint64> key {
+                loc ? qint64(loc->track.index) * 4 + qint64(loc->track.type) : 0, t.edit};
+            if (found && !seen.contains(key)) {
+                seen.insert(key);
+                targets.append(t);
+            }
+        }
+        if (targets.isEmpty())
+            return failPreset(tr("Select a clip next to the edit point to apply this preset to."));
+    } else if (def->target == plugins::PresetTarget::Playhead) {
         plugins::RecipeTarget t;
-        t.playhead = project.timeline()->playhead();
+        t.playhead = playhead;
         targets.append(t);
     } else {
         for (const quint64 id : clips) {
@@ -145,24 +214,47 @@ int PluginHost::applyPreset(
             t.start = clip->start;
             t.end = clip->start + clip->duration - 1;
             t.duration = clip->duration;
-            t.playhead = project.timeline()->playhead();
+            t.playhead = playhead;
             targets.append(t);
         }
         if (targets.isEmpty())
-            return fail(tr("Select a clip to apply this preset to."));
+            return failPreset(tr("Select a clip to apply this preset to."));
     }
+    return runRecipe(project, presetId, targets);
+}
+
+int PluginHost::failPreset(const QString& message)
+{
+    emit presetFailed(message);
+    if (!m_quiet)
+        QMessageBox::warning(m_window, tr("Preset"), message);
+    return 0;
+}
+
+int PluginHost::runRecipe(
+    Project& project, const QString& presetId, const QVector<plugins::RecipeTarget>& targets)
+{
+    plugins::PluginRegistry& registry = plugins::PluginRegistry::instance();
+    const plugins::PluginPresetDef* def = registry.findPreset(presetId);
+    if (!def)
+        return failPreset(tr("The preset is not available (its plugin is missing or disabled)."));
+    QString error;
+    const QJsonObject recipe = registry.presetRecipe(presetId, &error);
+    if (recipe.isEmpty())
+        return failPreset(error);
+    (void)project;
     QVector<QPair<QString, QJsonObject>> steps;
-    for (const plugins::RecipeTarget& t : std::as_const(targets)) {
+    for (const plugins::RecipeTarget& t : targets) {
         const QVector<plugins::RecipeStep> expanded = plugins::expandRecipe(recipe, t, &error);
         if (expanded.isEmpty())
-            return fail(error);
+            return failPreset(error);
         for (const plugins::RecipeStep& s : expanded)
             steps.append({s.command, s.args});
     }
     const commands::CommandResult result = commands::CommandRegistry::builtin().executeLiveBatch(
         tr("Apply %1").arg(def->name), steps, m_target);
     if (!result.ok)
-        return fail(result.error);
+        return failPreset(result.error);
     return int(targets.size());
 }
 
