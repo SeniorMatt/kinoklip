@@ -133,7 +133,7 @@ private slots:
         // (tests/render/test_effects5.cpp) + 7 template looks (tests/render/test_looks.cpp) + 3 of the
         // tracking effects (Match Move, Surface Tracker, Warper; tests/render/test_trackers.cpp) + Background Removal
         // (tests/render/test_backgroundremoval.cpp).
-        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 110);
+        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 111);
 
         // Every descriptor is well-formed.
         for (const EffectDescriptor& d : reg.all()) {
