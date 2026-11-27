@@ -3556,7 +3556,7 @@ Resolve's node editor has more than serial, parallel and layer nodes: Add Node >
 | # | Behaviour | Status |
 |---|---|---|
 | 195.1 | The timeline painter shapes a clip's text once, not once per clip per paint: the width of the elided name, of the source timecode and of the duration text is stored with the text in the per-clip name cache (`TimelinePainter::NameCache`), which is rebuilt only when the name, the available width, the source in point, the media start timecode, the clip length or the frame rate change; one `QFontMetrics` is made per style, not per clip. | Done (test_largeproject paintScrollAndZoom, numbers below) |
-| 195.2 | Measured with `test_largeproject paintScrollAndZoom` (1,500 clips, offscreen, laptop under build load): before, fully zoomed out mean 10.4 ms, 2 px/frame 4.45 ms, 10 px/frame 3.83 ms, zooming worst 13.8 ms. After: see roadmap batch 3 report. | Measured |
+| 195.2 | Measured with `test_largeproject paintScrollAndZoom` (1,500 clips, offscreen, laptop under build load): before, fully zoomed out mean 10.4 ms, 2 px/frame 4.45 ms, 10 px/frame 3.83 ms, zooming worst 13.8 ms. After: not measured yet (the build here ran on GitHub Actions, where ctest hides the numbers); run `test_largeproject paintScrollAndZoom` on a laptop and note them here. | Open |
 
 ## 196. Clone Tool (Media page; Resolve: Clone Tool)
 

@@ -304,6 +304,7 @@ when the owner asks for it.
 - [x] Interchange: EDL export with more than one video track (spec 169.1)
 - [x] Edit: type a marker Duration in the Edit Index table (spec 169.2)
 - [x] Platform: cache shaped clip names so painting a 1,500-clip timeline is cheaper (spec 195)
+- [ ] Platform: measure the paint time after the clip name cache (spec 195.2) and keep the numbers
 - [ ] Edit: two-up trim view with the program look (effects, transforms) without lag
 - [ ] Platform: fewer dropped frames on the first play of 4K HEVC
 - [ ] Edit: every remaining Resolve behaviour and quirk, page by page, driven by [behavior-spec.md](behavior-spec.md) and the parity tests
