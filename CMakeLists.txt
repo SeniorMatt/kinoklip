@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.24)
 set(APP_NAME "Kinoklip")
 set(APP_ID   "kinoklip")
 
-project(${APP_NAME} VERSION 1.14.1 LANGUAGES C CXX)
+project(${APP_NAME} VERSION 1.15.0 LANGUAGES C CXX)
 
 # mold forks a helper by default that nobody reaps in a container started without an init
 # process; thousands of zombies then use up the container's process limit. Link in one process.
