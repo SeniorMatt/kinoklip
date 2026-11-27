@@ -124,16 +124,17 @@ private slots:
             QLatin1String(groups::Cropping), QLatin1String(groups::Audio)};
         for (const QString& id : expected)
             QVERIFY2(reg.find(id), qPrintable(id));
-        // The 4 first transitions + 57 of version 1.2 (tests/render/test_transitions.cpp) + Fusion Composition.
-        QCOMPARE(reg.byCategory(EffectCategory::Transition).size(), 62);
+        // The 4 first transitions + 57 of version 1.2 (tests/render/test_transitions.cpp) + Fusion Composition + DCTL Transition.
+        QCOMPARE(reg.byCategory(EffectCategory::Transition).size(), 63);
         // 8 v0.1 effects + 24 of the v4 batch 1 (tests/render/test_videoeffects.cpp) + 30 of
         // batch 2 (tests/render/test_videoeffects2.cpp) + 11 of version 1.2
         // (tests/render/test_effectsgap.cpp) + 17 of its second part
         // (tests/render/test_effectsb.cpp) + 9 of the multi-frame effects
         // (tests/render/test_effects5.cpp) + 7 template looks (tests/render/test_looks.cpp) + 3 of the
         // tracking effects (Match Move, Surface Tracker, Warper; tests/render/test_trackers.cpp) + Background Removal
-        // (tests/render/test_backgroundremoval.cpp).
-        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 111);
+        // (tests/render/test_backgroundremoval.cpp) + 6 colour management effects
+        // (tests/render/test_colormanagement.cpp).
+        QCOMPARE(reg.byCategory(EffectCategory::VideoEffect).size(), 117);
 
         // Every descriptor is well-formed.
         for (const EffectDescriptor& d : reg.all()) {
