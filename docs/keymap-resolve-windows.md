@@ -10,7 +10,7 @@ Resolve's documentation).
 - **likely**: believed correct, not verified against a running Resolve;
 - **unsure**: best guess; please correct in the keymap file (and here) if it differs.
 
-Counts: 410 commands; sure 107, likely 122, unsure 181.
+Counts: 417 commands; sure 107, likely 129, unsure 181.
 
 Mouse (EditBehaviour, Preferences > Editing): wheel scrolls the tracks vertically, Ctrl+wheel
 scrolls the timeline horizontally, Alt+wheel zooms the timeline (around the playhead by default;
@@ -39,6 +39,13 @@ that every command has an entry and that no key is used twice.
 | Import Media | `file.import_media` | `Ctrl+I` | sure |  |
 | Import Media Folder (a folder and optionally its subfolders, as bins) | `file.import_media_folder` | (none) | likely | Resolve offers Add Folder (and SubFolders) into Media Pool from its media storage and media pool menus; no default key known |
 | Import Timeline (OpenTimelineIO .otio file as a new timeline) | `file.import_timeline` | (none) | likely | File > Import > Timeline in Resolve (AAF, EDL, XML, OTIO among the formats); no default key known |
+| Export Project Archive (the project and its media into one .dra folder) | `file.export_archive` | (none) | likely | File > Project Tools in Resolve; no default key known |
+| Restore Project Archive (copy an archive folder back and open it) | `file.restore_archive` | (none) | likely | File > Project Tools in Resolve; no default key known |
+| Export Metadata (clip metadata of the media pool to a CSV file) | `file.export_metadata` | (none) | likely | File > Export > Metadata in Resolve; no default key known |
+| Import Metadata (clip metadata of the media pool from a CSV file) | `file.import_metadata` | (none) | likely | File > Import > Metadata in Resolve; no default key known |
+| Save Layout as Preset | `settings.layout_save` | (none) | likely | Workspace > Layout Presets in Resolve; no default key known |
+| Bounce Mix to Track | `timeline.bounce_mix` | (none) | likely | Timeline menu in Resolve; no default key known |
+| Bounce Selected Tracks | `timeline.bounce_tracks` | (none) | likely | Timeline menu in Resolve; no default key known |
 | Import Subtitle | `file.import_subtitle` | (none) | likely | File > Import > Subtitle in Resolve; no default key known |
 | Export Timeline as EDL (CMX3600: V, A, A2, dissolves, M2 speed) | `file.export_edl` | (none) | likely | File > Export > Timeline in Resolve (EDL among the formats); no default key known |
 | Export Timeline as OpenTimelineIO (.otio) | `file.export_otio` | (none) | likely | File > Export > Timeline in Resolve (OTIO among the formats); no default key known |
