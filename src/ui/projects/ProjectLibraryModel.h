@@ -66,6 +66,9 @@ public:
     /// Row of @p path, or -1.
     [[nodiscard]] int rowOf(const QString& path) const { return m_rowOf.value(path, -1); }
     [[nodiscard]] ProjectLibrary* library() const { return m_library; }
+    /// Shows @p library instead (spec 198: more than one project library): its root, nothing
+    /// of the old one stays connected.
+    void setLibrary(ProjectLibrary* library);
 
     int rowCount(const QModelIndex& parent = {}) const override;
     int columnCount(const QModelIndex& parent = {}) const override;

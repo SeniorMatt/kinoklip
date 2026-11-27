@@ -264,6 +264,21 @@ private slots:
     }
 
 #ifdef KK_HAVE_TRANSLATIONS
+    /// Volunteers fill in resources/translations/kinoklip_<code>.ts: each language has a file
+    /// and none of them keeps an unfinished entry (100.4, 100.6).
+    void everyLanguageHasACompleteFile()
+    {
+        for (const i18n::Language& l : i18n::languages()) {
+            if (l.code == QLatin1String("en"))
+                continue;
+            QFile ts(QStringLiteral(KK_TEST_DATA_DIR "/../../resources/translations/kinoklip_%1.ts").arg(l.code));
+            QVERIFY2(ts.open(QIODevice::ReadOnly), qPrintable(l.code));
+            const QByteArray text = ts.readAll();
+            QVERIFY2(text.contains("<message"), qPrintable(l.code));
+            QVERIFY2(!text.contains("type=\"unfinished\""), qPrintable(l.code));
+        }
+    }
+
     void shippedFilesLoad()
     {
         for (const char* code : {"ru", "de", "uk", "es"}) {
@@ -368,6 +383,13 @@ private slots:
                     sections(&prefs);
                 }
             }
+            // Roadmap "language choice in Preferences" (100.1): the list names every language.
+            QComboBox* language = prefs.findChild<QComboBox*>(QStringLiteral("Language"));
+            QVERIFY(language);
+            QCOMPARE(language->count(), 1 + int(i18n::languages().size()));
+            QVERIFY(language->findData(QStringLiteral("system")) >= 0);
+            for (const i18n::Language& l : i18n::languages())
+                QVERIFY2(language->findData(l.code) >= 0, qPrintable(l.code));
         }
         {
             ProjectSettingsDialog settings(&project, &window);

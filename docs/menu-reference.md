@@ -1,4 +1,4 @@
-424 menu entries in 13 menus; 62 panels
+425 menu entries in 13 menus; 62 panels
 
 # Menu and panel reference
 
@@ -185,6 +185,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 | Swap Clip with Next | Ctrl+Shift+. | Swaps the selected clip with the clip after it. |
 | Move Clips Up a Track | Alt+Up | Moves the selected clips one track up, replacing what is there. |
 | Move Clips Down a Track | Alt+Down | Moves the selected clips one track down, replacing what is there. |
+| Trim Editor… |  | Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side. |
 
 ## Timeline
 
@@ -596,7 +597,7 @@ Shortcuts are the defaults of the Resolve keymap (Windows); another keyboard pro
 
 # Streamlined menu layout
 
-Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 424 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
+Preferences > UI Settings > Menu layout offers the menus above (Resolve, the default) or this arrangement (Streamlined): 425 commands in 15 tables (menus, page menus and the last table), no menu longer than 12 entries, grouped by task, with plain names. The commands, their keys and descriptions are the same in both. The page menu (Cut, Nodes or Grade) is shown on its page only; the tables below list all three. Commands that are on no menu are in the last table.
 
 ## Streamlined Kinoklip
 
@@ -887,6 +888,7 @@ Preferences > UI Settings > Menu layout offers the menus above (Resolve, the def
 | Move > Down a Track | Alt+Down | Moves the selected clips one track down, replacing what is there. |
 | Edit Point > Select Nearest | V | Selects the edit point nearest to the playhead; at a cut both sides are selected. |
 | Edit Point > Cycle Side | U | Cycles the selected edit point between the outgoing side, both sides (roll) and the incoming side. |
+| Trim Editor… |  | Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side. |
 
 ## Streamlined Mark
 

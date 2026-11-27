@@ -149,6 +149,8 @@ const ActionSpec kActions[] = {
     {"trim", "trim.swap_right",       QT_TRANSLATE_NOOP("kk::StandardActions", "Swap Clip with Next")},
     {"trim", "trim.move_up",          QT_TRANSLATE_NOOP("kk::StandardActions", "Move Clips Up a Track")},
     {"trim", "trim.move_down",        QT_TRANSLATE_NOOP("kk::StandardActions", "Move Clips Down a Track")},
+    {"trim", "-"},
+    {"trim", "trim.trim_editor",      QT_TRANSLATE_NOOP("kk::StandardActions", "Trim &Editor…")},
 
     // ---- Timeline ----
     {"timeline", "edit.split",        QT_TRANSLATE_NOOP("kk::StandardActions", "&Split Clip at Playhead"), "split"},

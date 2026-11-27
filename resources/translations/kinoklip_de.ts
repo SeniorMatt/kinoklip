@@ -769,6 +769,10 @@ Das Programm wurde wahrscheinlich vom System beendet, weil der Arbeitsspeicher d
         <source>Rendering the audio…</source>
         <translation>Audio wird gerendert…</translation>
     </message>
+    <message>
+        <source>Remove</source>
+        <translation>Entfernen</translation>
+    </message>
 </context>
 <context>
     <name>TimelineRepair</name>
@@ -2475,6 +2479,10 @@ Das Programm wurde wahrscheinlich vom System beendet, weil der Arbeitsspeicher d
     <message>
         <source>Moves the selected edit point to the playhead.</source>
         <translation>Verschiebt den ausgewählten Schnittpunkt zum Abspielkopf.</translation>
+    </message>
+    <message>
+        <source>Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side.</source>
+        <translation>Öffnet den Trim-Editor: die Bilder beiderseits des gewählten Schnittpunkts nebeneinander, mit Tasten, die die ausgehende Seite, den Roll oder die eingehende Seite trimmen.</translation>
     </message>
     <message>
         <source>Cycles the selected edit point between the outgoing side, both sides (roll) and the incoming side.</source>
@@ -10260,6 +10268,81 @@ Danke fürs Zuschauen</translation>
     <message>
         <source>Reset Equalizer Band %1</source>
         <translation>Equalizer-Band %1 zurücksetzen</translation>
+    </message>
+</context>
+<context>
+    <name>kk::CloneToolDialog</name>
+    <message>
+        <source>Clone Tool</source>
+        <translation>Klon-Werkzeug</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>Quelle</translation>
+    </message>
+    <message>
+        <source>Add Folder...</source>
+        <translation>Ordner hinzufügen...</translation>
+    </message>
+    <message>
+        <source>Add File...</source>
+        <translation>Datei hinzufügen...</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Source Folder</source>
+        <translation>Klon-Werkzeug: Quellordner</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Source Files</source>
+        <translation>Klon-Werkzeug: Quelldateien</translation>
+    </message>
+    <message>
+        <source>Destination</source>
+        <translation>Ziel</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Destination Folder</source>
+        <translation>Klon-Werkzeug: Zielordner</translation>
+    </message>
+    <message>
+        <source>Checksum Type</source>
+        <translation>Prüfsummentyp</translation>
+    </message>
+    <message>
+        <source>Verify copies after cloning</source>
+        <translation>Kopien nach dem Klonen prüfen</translation>
+    </message>
+    <message>
+        <source>Clone</source>
+        <translation>Klonen</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Schließen</translation>
+    </message>
+    <message>
+        <source>Add a source and a destination first.</source>
+        <translation>Fügen Sie zuerst eine Quelle und ein Ziel hinzu.</translation>
+    </message>
+    <message>
+        <source>Cancelled.</source>
+        <translation>Abgebrochen.</translation>
+    </message>
+    <message>
+        <source>Cloned %n file; every copy matches its source.</source>
+        <translation>%n Datei geklont; jede Kopie stimmt mit ihrer Quelle überein.</translation>
+    </message>
+    <message>
+        <source>Cloned %n files; every copy matches its source.</source>
+        <translation>%n Dateien geklont; jede Kopie stimmt mit ihrer Quelle überein.</translation>
+    </message>
+    <message>
+        <source>Cloned with problems:</source>
+        <translation>Mit Problemen geklont:</translation>
     </message>
 </context>
 <context>
@@ -21836,12 +21919,20 @@ Auch ein Doppelklick auf die Kopfzeile oder Herausziehen der Kopfzeile aus dem P
         <translation>Zum Medienpool hinzufügen</translation>
     </message>
     <message>
+        <source>Clone Tool</source>
+        <translation>Klon-Werkzeug</translation>
+    </message>
+    <message>
         <source>Add Folder into Media Pool</source>
         <translation>Ordner zum Medienpool hinzufügen</translation>
     </message>
     <message>
         <source>Add Folder and Subfolders into Media Pool (Create Bins)</source>
         <translation>Ordner und Unterordner zum Medienpool hinzufügen (Ordner anlegen)</translation>
+    </message>
+    <message>
+        <source>Clone Folder...</source>
+        <translation>Ordner klonen...</translation>
     </message>
     <message>
         <source>Add %1 Files to Media Pool</source>
@@ -24372,6 +24463,10 @@ Dateien mit %1 importieren oder hier ablegen.</translation>
     <message>
         <source>Transform</source>
         <translation>Transformation</translation>
+    </message>
+    <message>
+        <source>Trim Editor…</source>
+        <translation>Trim-Editor…</translation>
     </message>
     <message>
         <source>Trim Mode</source>
@@ -30069,6 +30164,18 @@ Geschätzte Größe nach dem Verkleinern: %3</translation>
         <translation>Importieren…</translation>
     </message>
     <message>
+        <source>&amp;Add Library…</source>
+        <translation>Bibliothek &amp;hinzufügen…</translation>
+    </message>
+    <message>
+        <source>Add Project Library</source>
+        <translation>Projektbibliothek hinzufügen</translation>
+    </message>
+    <message>
+        <source>&amp;Remove Library from List</source>
+        <translation>Bibliothek aus der &amp;Liste entfernen</translation>
+    </message>
+    <message>
         <source>Copy a project file into the library</source>
         <translation>Eine Projektdatei in die Bibliothek kopieren</translation>
     </message>
@@ -30203,6 +30310,10 @@ Geschätzte Größe nach dem Verkleinern: %3</translation>
     <message>
         <source>&amp;Open</source>
         <translation>&amp;Öffnen</translation>
+    </message>
+    <message>
+        <source>Open in New &amp;Window</source>
+        <translation>In neuem &amp;Fenster öffnen</translation>
     </message>
     <message>
         <source>&amp;Rename</source>
@@ -33285,6 +33396,10 @@ Kinoklip neu starten, um sie anzuwenden.</translation>
         <translation>Metadaten aus dem Medien&amp;pool…</translation>
     </message>
     <message>
+        <source>Trim &amp;Editor…</source>
+        <translation>Trim-&amp;Editor…</translation>
+    </message>
+    <message>
         <source>&amp;Retime Controls</source>
         <translation>&amp;Retime-Steuerung</translation>
     </message>
@@ -36252,6 +36367,41 @@ Die Clips trimmen, damit die Medien den Übergang abdecken?</translation>
     <message>
         <source>Move Clip</source>
         <translation>Clip verschieben</translation>
+    </message>
+</context>
+<context>
+    <name>kk::TrimEditorWindow</name>
+    <message>
+        <source>Trim Editor</source>
+        <translation>Trim-Editor</translation>
+    </message>
+    <message>
+        <source>Outgoing</source>
+        <translation>Ausgehend</translation>
+    </message>
+    <message>
+        <source>Roll</source>
+        <translation>Roll</translation>
+    </message>
+    <message>
+        <source>Incoming</source>
+        <translation>Eingehend</translation>
+    </message>
+    <message>
+        <source>Previous Edit</source>
+        <translation>Vorheriger Schnittpunkt</translation>
+    </message>
+    <message>
+        <source>Trim %1 by %2 frame(s)</source>
+        <translation>%1 um %2 Bild(er) trimmen</translation>
+    </message>
+    <message>
+        <source>Next Edit</source>
+        <translation>Nächster Schnittpunkt</translation>
+    </message>
+    <message>
+        <source>Select an edit point in the timeline.</source>
+        <translation>Wählen Sie einen Schnittpunkt in der Timeline.</translation>
     </message>
 </context>
 <context>

@@ -3593,3 +3593,38 @@ Resolve's node editor has more than serial, parallel and layer nodes: Add Node >
 | 187.3 | **Cancel** stops after the frame in progress: the frames found so far are keyed; a run that finds nothing leaves the mask unchanged. The status line counts the tracked frames and then says what happened. The controls are disabled while a track (of this or another mask or effect) runs. | Done (`InspectorPanel::finishMaskTrack`) |
 | 187.4 | `kinoklip mask follow --clip C --mask M [--at TIME]` (command `mask.follow`, so also the MCP server and live control) does the same from a project file with progress per frame; `clip list` shows each clip's masks (id, name, shape, enabled, animated). Errors: unknown_clip, unknown_mask, out_of_range, cannot_track, tracking_failed. | Done (`test_maskcommand`) |
 | 187.5 | Not done: a Follow Subject for the masks of the Compositing page (use the Mask Tracker: Planar Tracker + Follow Track, spec 117), keeping a manually keyed shape through the track (the keys replace the mask's own Position, Scale and Rotation keys), a tracked mask on the Color page windows without a window (spec 107.9), perspective (3D) following. | Open |
+
+## 195. Cached clip name widths in the timeline painter
+
+| # | Behaviour | Status |
+|---|---|---|
+| 195.1 | The timeline painter shapes a clip's text once, not once per clip per paint: the width of the elided name, of the source timecode and of the duration text is stored with the text in the per-clip name cache (`TimelinePainter::NameCache`), which is rebuilt only when the name, the available width, the source in point, the media start timecode, the clip length or the frame rate change; one `QFontMetrics` is made per style, not per clip. | Done (test_largeproject paintScrollAndZoom, numbers below) |
+| 195.2 | Measured with `test_largeproject paintScrollAndZoom` (1,500 clips, offscreen, laptop under build load): before, fully zoomed out mean 10.4 ms, 2 px/frame 4.45 ms, 10 px/frame 3.83 ms, zooming worst 13.8 ms. After: not measured yet (the build here ran on GitHub Actions, where ctest hides the numbers); run `test_largeproject paintScrollAndZoom` on a laptop and note them here. | Open |
+
+## 196. Clone Tool (Media page; Resolve: Clone Tool)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 196.1 | The Media page's Media Storage panel has a Clone Tool button (and Clone Folder... in the folder context menu) that opens a window of its own: Source (folders and files, Add Folder / Add File / Remove), Destination (folders; several make several copies in one pass), Checksum Type (MD5, SHA-1, SHA-256, CRC-32), "Verify copies after cloning" (on), Clone, Cancel, Close, a progress bar and a log. The Media page stays usable while it runs. | Done (test_clonetool dialogRunsAJob) |
+| 196.2 | Each source file is read once; every block goes to every destination and into the checksum. A source folder is copied as `<destination>/<folder name>/...` with its sub-folders and hidden files; the modification time is kept; a file is written under a temporary name and renamed when complete, so a cancelled job leaves no half file. | Done (test_clonetool copiesToTwoDestinationsAndVerifies, jobErrorsAndCancel) |
+| 196.3 | Verify reads every copy back and compares its checksum with the source's; a difference is reported as "checksum differs after copying". Next to each copy a list `<name>.md5` (`.sha1`, `.sha256`, `.crc32`) in the md5sum format is written, so `md5sum -c` checks the copy later. | Done (test_clonetool) |
+| 196.4 | Nothing is overwritten: a file that already exists in a destination is reported and skipped; the other files are copied. | Done (test_clonetool neverOverwrites) |
+| 196.5 | The command line and the MCP server: `media.clone --source A --destination B [--destination C] [--checksum md5|sha1|sha256|crc32] [--no-verify]` (error: clone_failed, bad_checksum). | Done (test_clonetool commandCopiesAndReports) |
+| 196.6 | Not done: Resolve's ASC MHL / report files, xxHash64, a job queue with several jobs, camera-card detection. Decision: the checksum types are the ones Qt and zlib provide; the list is the standard md5sum format instead of MHL. | Open |
+
+## 197. Trim Editor (Trim menu; Resolve: Trim Editor)
+
+| # | Behaviour | Status |
+|---|---|---|
+| 197.1 | Trim > Trim Editor... opens a window of its own (non-modal, one per window, kept hidden when closed) with the last frame of the outgoing clip on the left and the first frame of the incoming clip on the right (names and timecodes under them, the look of the two-up trim view, spec 8.15 / 8.19), for the selected edit point. A tail-only or head-only selection shows the touching neighbour on the other side; with a gap that side is black. Without an edit point it says "Select an edit point in the timeline." | Done (test_trimeditor previewIsTheTwoFramesAroundTheCut, buttonsTrimTheSelectedEdit) |
+| 197.2 | Under the pictures, Outgoing, Roll and Incoming each have -10 -5 -1 +1 +5 +10; a button selects that side of the edit point and trims it like the nudge keys (ripple in the trim tool, one undo step); the pictures follow. Buttons of a side that has no clip are off. Previous Edit / Next Edit step the selected edit point. | Done (test_trimeditor) |
+| 197.3 | Decision: Resolve's exact way of opening the Trim Editor (and its default shortcut) could not be found in public documentation, so there is a menu entry without a shortcut. The frames are the source frames (or with the preference "Trim view shows effects and transforms", the clip's look). Supersedes 35.21. | Decision |
+
+## 198. More than one project library, Open in a New Window
+
+| # | Behaviour | Status |
+|---|---|---|
+| 198.1 | The Project Manager's places list shows the main Project Library (Preferences), then every added library by its folder name (tool tip: the path), then Recent Projects. Right-click: Add Library... (a folder) and Remove Library from List (not for the main one; the folder and its projects are not touched). The list is remembered (`projectManager/extraLibraries`); a folder that is gone is skipped. | Done (test_projectlibraries severalLibrariesAreShownOneAtATime, theListIsRemembered, aLibraryThatIsGoneIsSkipped) |
+| 198.2 | A library is shown and worked in one at a time: new projects, folders, rename, move, trash, import and export act in the shown one; each library has its own metadata and poster cache. | Done (test_projectlibraries) |
+| 198.3 | The context menu of a project has Open in New Window: starts another Kinoklip process with the project (the AppImage file itself when run from an AppImage); not offered for the project open here (one writer per file, spec 38). | Done (test_projectlibraries openInANewWindowStartsAnotherProgram) |
+| 198.4 | Not done: a cloud / shared database library (stays open); File > New Window without a project. Supersedes 38.22 for libraries and windows. | Open |

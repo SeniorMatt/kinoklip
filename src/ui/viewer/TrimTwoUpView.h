@@ -42,6 +42,8 @@ class TrimTwoUpView : public QWidget
 public:
     /// @p pool resolves media ids to file paths (not owned, must outlive the view).
     TrimTwoUpView(ViewerSurface* surface, const MediaPool* pool);
+    /// The same over any widget @p host (the Trim Editor window, spec 197): the view fills it.
+    TrimTwoUpView(QWidget* host, const MediaPool* pool);
 
     /// How the sides are pictured.
     enum class Pictures {
@@ -100,7 +102,7 @@ private:
     void collectRenders();
     void paintSide(QPainter& p, const QRect& r, const TrimPreviewSide& side, const Side& s);
 
-    ViewerSurface* m_surface;
+    QWidget* m_host; ///< the widget the view covers
     const MediaPool* m_pool;
     TrimPreview m_preview;
     Rational m_fps;

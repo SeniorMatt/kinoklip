@@ -8,10 +8,12 @@
 #include "ui/common/MediaImport.h"
 #include "ui/common/PanelInfo.h"
 #include "ui/common/PanelSplitter.h"
+#include "ui/dialogs/CloneToolDialog.h"
 
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
+#include <QFileInfo>
 #include <QFileSystemModel>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -139,6 +141,10 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
     auto* buttonLayout = new QHBoxLayout(buttonRow);
     buttonLayout->setContentsMargins(6, 4, 6, 6);
     m_add = new QPushButton(icon(QStringLiteral("import")), tr("Add to Media Pool"));
+    // Resolve: the Clone Tool of the Media page (camera cards copied with a checksum).
+    m_clone = new QPushButton(icon(QStringLiteral("folder")), tr("Clone Tool"));
+    m_clone->setObjectName(QStringLiteral("cloneToolButton"));
+    buttonLayout->addWidget(m_clone);
     buttonLayout->addStretch(1);
     buttonLayout->addWidget(m_add);
     layout->addWidget(buttonRow);
@@ -160,6 +166,7 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
         });
     connect(m_list, &QTreeView::doubleClicked, this, [this] { addSelectedToMediaPool(); });
     connect(m_add, &QPushButton::clicked, this, [this] { addSelectedToMediaPool(); });
+    connect(m_clone, &QPushButton::clicked, this, [this] { openCloneTool(m_folder); });
     connect(m_list, &QWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
         if (selectedFiles().isEmpty())
             return;
@@ -180,6 +187,8 @@ MediaBrowserPanel::MediaBrowserPanel(AppContext& ctx, QWidget* parent)
         menu.addAction(icon(QStringLiteral("folder")),
             tr("Add Folder and Subfolders into Media Pool (Create Bins)"), this,
             [this, folder] { addFolderToMediaPool(folder, true); });
+        menu.addAction(icon(QStringLiteral("folder")), tr("Clone Folder..."), this,
+            [this, folder] { openCloneTool(folder); });
         menu.exec(m_tree->viewport()->mapToGlobal(pos));
     });
 
@@ -278,6 +287,21 @@ void MediaBrowserPanel::updateButton()
     m_add->setEnabled(count > 0);
     m_add->setText(
         count > 1 ? tr("Add %1 Files to Media Pool").arg(count) : tr("Add to Media Pool"));
+}
+
+} // namespace kk
+
+namespace kk {
+
+void MediaBrowserPanel::openCloneTool(const QString& sourceFolder)
+{
+    if (!m_cloneDialog)
+        m_cloneDialog = new CloneToolDialog(window());
+    if (!sourceFolder.isEmpty() && QFileInfo(sourceFolder).isDir())
+        m_cloneDialog->addSource(sourceFolder);
+    m_cloneDialog->show();
+    m_cloneDialog->raise();
+    m_cloneDialog->activateWindow();
 }
 
 } // namespace kk

@@ -772,6 +772,10 @@ The program was probably closed by the system because the computer ran out of me
         <source>Rendering the audio…</source>
         <translation>Рендеринг звука…</translation>
     </message>
+    <message>
+        <source>Remove</source>
+        <translation>Удалить</translation>
+    </message>
 </context>
 <context>
     <name>TimelineRepair</name>
@@ -2483,6 +2487,10 @@ The program was probably closed by the system because the computer ran out of me
     <message>
         <source>Moves the selected edit point to the playhead.</source>
         <translation>Перемещает выбранную точку монтажа на указатель воспроизведения.</translation>
+    </message>
+    <message>
+        <source>Opens the Trim Editor: the frames on both sides of the selected edit point side by side, with buttons that trim the outgoing side, the roll or the incoming side.</source>
+        <translation>Открывает редактор подрезки: кадры по обе стороны выбранной точки монтажа рядом, с кнопками подрезки исходящей стороны, ролла или входящей стороны.</translation>
     </message>
     <message>
         <source>Cycles the selected edit point between the outgoing side, both sides (roll) and the incoming side.</source>
@@ -10269,6 +10277,81 @@ Thank you for watching</source>
     <message>
         <source>Reset Equalizer Band %1</source>
         <translation>Сбросить полосу %1 эквалайзера</translation>
+    </message>
+</context>
+<context>
+    <name>kk::CloneToolDialog</name>
+    <message>
+        <source>Clone Tool</source>
+        <translation>Инструмент клонирования</translation>
+    </message>
+    <message>
+        <source>Source</source>
+        <translation>Источник</translation>
+    </message>
+    <message>
+        <source>Add Folder...</source>
+        <translation>Добавить папку...</translation>
+    </message>
+    <message>
+        <source>Add File...</source>
+        <translation>Добавить файл...</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Source Folder</source>
+        <translation>Инструмент клонирования: исходная папка</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Source Files</source>
+        <translation>Инструмент клонирования: исходные файлы</translation>
+    </message>
+    <message>
+        <source>Destination</source>
+        <translation>Назначение</translation>
+    </message>
+    <message>
+        <source>Clone Tool: Destination Folder</source>
+        <translation>Инструмент клонирования: папка назначения</translation>
+    </message>
+    <message>
+        <source>Checksum Type</source>
+        <translation>Тип контрольной суммы</translation>
+    </message>
+    <message>
+        <source>Verify copies after cloning</source>
+        <translation>Проверять копии после клонирования</translation>
+    </message>
+    <message>
+        <source>Clone</source>
+        <translation>Клонировать</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+    <message>
+        <source>Add a source and a destination first.</source>
+        <translation>Сначала добавьте источник и назначение.</translation>
+    </message>
+    <message>
+        <source>Cancelled.</source>
+        <translation>Отменено.</translation>
+    </message>
+    <message>
+        <source>Cloned %n file; every copy matches its source.</source>
+        <translation>Клонирован %n файл; каждая копия совпадает с источником.</translation>
+    </message>
+    <message>
+        <source>Cloned %n files; every copy matches its source.</source>
+        <translation>Клонировано файлов: %n; каждая копия совпадает с источником.</translation>
+    </message>
+    <message>
+        <source>Cloned with problems:</source>
+        <translation>Клонировано с ошибками:</translation>
     </message>
 </context>
 <context>
@@ -21853,12 +21936,20 @@ You can also double-click the header, or drag the header out of the panel.</sour
         <translation>Добавить в медиапул</translation>
     </message>
     <message>
+        <source>Clone Tool</source>
+        <translation>Инструмент клонирования</translation>
+    </message>
+    <message>
         <source>Add Folder into Media Pool</source>
         <translation>Добавить папку в медиапул</translation>
     </message>
     <message>
         <source>Add Folder and Subfolders into Media Pool (Create Bins)</source>
         <translation>Добавить папку и подпапки в медиапул (создать папки)</translation>
+    </message>
+    <message>
+        <source>Clone Folder...</source>
+        <translation>Клонировать папку...</translation>
     </message>
     <message>
         <source>Add %1 Files to Media Pool</source>
@@ -24391,6 +24482,10 @@ Import files with %1 or drop them here.</source>
     <message>
         <source>Transform</source>
         <translation>Трансформация</translation>
+    </message>
+    <message>
+        <source>Trim Editor…</source>
+        <translation>Редактор подрезки…</translation>
     </message>
     <message>
         <source>Trim Mode</source>
@@ -28260,7 +28355,7 @@ Import files with %1 or drop them here.</source>
     </message>
     <message>
         <source>Clone</source>
-        <translation>Клон</translation>
+        <translation>Клонировать</translation>
     </message>
     <message>
         <source>Clone Offset X</source>
@@ -30092,6 +30187,18 @@ Estimated size after compacting: %3</source>
         <translation>Импорт…</translation>
     </message>
     <message>
+        <source>&amp;Add Library…</source>
+        <translation>&amp;Добавить библиотеку…</translation>
+    </message>
+    <message>
+        <source>Add Project Library</source>
+        <translation>Добавить библиотеку проектов</translation>
+    </message>
+    <message>
+        <source>&amp;Remove Library from List</source>
+        <translation>&amp;Убрать библиотеку из списка</translation>
+    </message>
+    <message>
         <source>Copy a project file into the library</source>
         <translation>Скопировать файл проекта в библиотеку</translation>
     </message>
@@ -30226,6 +30333,10 @@ Estimated size after compacting: %3</source>
     <message>
         <source>&amp;Open</source>
         <translation>&amp;Открыть</translation>
+    </message>
+    <message>
+        <source>Open in New &amp;Window</source>
+        <translation>Открыть в новом &amp;окне</translation>
     </message>
     <message>
         <source>&amp;Rename</source>
@@ -33309,6 +33420,10 @@ Restart Kinoklip to apply them.</source>
         <translation>Метаданные из медиа&amp;пула…</translation>
     </message>
     <message>
+        <source>Trim &amp;Editor…</source>
+        <translation>&amp;Редактор подрезки…</translation>
+    </message>
+    <message>
         <source>&amp;Retime Controls</source>
         <translation>&amp;Элементы управления ретаймом</translation>
     </message>
@@ -36276,6 +36391,41 @@ Trim the clips so the media covers the transition?</source>
     <message>
         <source>Move Clip</source>
         <translation>Переместить клип</translation>
+    </message>
+</context>
+<context>
+    <name>kk::TrimEditorWindow</name>
+    <message>
+        <source>Trim Editor</source>
+        <translation>Редактор подрезки</translation>
+    </message>
+    <message>
+        <source>Outgoing</source>
+        <translation>Исходящий</translation>
+    </message>
+    <message>
+        <source>Roll</source>
+        <translation>Ролл</translation>
+    </message>
+    <message>
+        <source>Incoming</source>
+        <translation>Входящий</translation>
+    </message>
+    <message>
+        <source>Previous Edit</source>
+        <translation>Предыдущая точка монтажа</translation>
+    </message>
+    <message>
+        <source>Trim %1 by %2 frame(s)</source>
+        <translation>Подрезать: %1, на кадров: %2</translation>
+    </message>
+    <message>
+        <source>Next Edit</source>
+        <translation>Следующая точка монтажа</translation>
+    </message>
+    <message>
+        <source>Select an edit point in the timeline.</source>
+        <translation>Выберите точку монтажа на таймлайне.</translation>
     </message>
 </context>
 <context>

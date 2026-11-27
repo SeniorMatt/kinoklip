@@ -5,6 +5,7 @@
 #include "core/MediaMetadataCsv.h"
 #include "core/MediaPool.h"
 #include "export/EdlExport.h"
+#include "media/CloneTool.h"
 #include "core/Project.h"
 #include "ui/common/TimecodeFormat.h"
 
@@ -152,10 +153,64 @@ CommandResult runImportMetadata(CommandContext& ctx, const CommandArgs& args)
             .arg(report.unmatched.size()));
 }
 
+CommandResult runClone(CommandContext&, const CommandArgs& args)
+{
+    clone::Job job;
+    for (const QString& s : args.strings(QStringLiteral("source")))
+        job.sources << QFileInfo(s).absoluteFilePath();
+    for (const QString& d : args.strings(QStringLiteral("destination")))
+        job.destinations << QFileInfo(d).absoluteFilePath();
+    if (args.has(QStringLiteral("checksum"))
+        && !clone::parseChecksum(args.string(QStringLiteral("checksum")), job.checksum))
+        return fail("bad_checksum", QStringLiteral("checksum must be md5, sha1, sha256 or crc32"));
+    job.verify = !args.boolean(QStringLiteral("no-verify"));
+    const clone::Result result = clone::run(job);
+    if (!result.error.isEmpty())
+        return fail("clone_failed", result.error);
+    QJsonArray files;
+    for (const clone::FileResult& f : result.results)
+        files.append(QJsonObject {{QStringLiteral("file"), f.relative},
+            {QStringLiteral("size"), f.size}, {QStringLiteral("checksum"), f.checksum}});
+    const QJsonObject data {{QStringLiteral("files"), result.files},
+        {QStringLiteral("bytes"), result.bytes}, {QStringLiteral("verified"), result.verified},
+        {QStringLiteral("failures"), QJsonArray::fromStringList(result.failures)},
+        {QStringLiteral("checksum"), clone::checksumName(job.checksum)},
+        {QStringLiteral("list"), files}};
+    if (!result.ok)
+        return fail("clone_failed",
+            QStringLiteral("%1 problem(s): %2")
+                .arg(result.failures.size())
+                .arg(result.failures.join(QStringLiteral("; "))));
+    return CommandResult::success(data,
+        QStringLiteral("cloned %1 file(s) to %2 destination(s), %3 copies verified")
+            .arg(result.files)
+            .arg(job.destinations.size())
+            .arg(result.verified));
+}
+
 } // namespace
 
 void registerMediaCommands(CommandRegistry& registry)
 {
+    registry.add({{QStringLiteral("media.clone"),
+                      QStringLiteral("Clone Tool: copy folders or files (a camera card) to one or "
+                                     "more destinations and verify every copy with a checksum; "
+                                     "writes <name>.md5 (or .sha1 ...) next to each copy."),
+                      {{QStringLiteral("source"), ParamType::StringList,
+                           QStringLiteral("folder or file to copy (repeat the option for more)"),
+                           true, {}, {}},
+                          {QStringLiteral("destination"), ParamType::StringList,
+                              QStringLiteral("folder to copy into (repeat for more copies)"), true,
+                              {}, {}},
+                          {QStringLiteral("checksum"), ParamType::String,
+                              QStringLiteral("checksum type"), false, QStringLiteral("md5"),
+                              {QStringLiteral("md5"), QStringLiteral("sha1"),
+                                  QStringLiteral("sha256"), QStringLiteral("crc32")}},
+                          {QStringLiteral("no-verify"), ParamType::Boolean,
+                              QStringLiteral("skip reading the copies back"), false,
+                              QStringLiteral("false"), {}}},
+                      ProjectUse::None, false},
+        runClone});
     registry.add({{QStringLiteral("media.export-metadata"),
                       QStringLiteral("Write the clip metadata of the media pool to a CSV file."),
                       {{QStringLiteral("file"), ParamType::Path, QStringLiteral("CSV file to write"),

@@ -282,18 +282,19 @@ when the owner asks for it.
 - [x] Audio: Bounce Mix to Track and Bounce Selected Tracks (Timeline menu): render the whole mix, or each selected track with its effects, into a new audio track as one clip (spec 176; command `track bounce`, so also the command line and the MCP server)
 - [x] Edit: Auto Align Clips (clip context menu): line up selected clips on different tracks by timecode or by matching their sound (user request, issue 16; spec 153; command `clip align`, so also the command line and the MCP server; guide line-up-clips-by-sound)
 - [ ] Edit: Paste Mix to Current Track (Edit menu); its exact behaviour is read from public documentation first
-- [ ] Edit: Trim Editor as a window of its own: outgoing and incoming frames side by side with trim buttons
+- [x] Edit: Trim Editor as a window of its own: outgoing and incoming frames side by side with trim buttons (spec 197; Trim > Trim Editor)
 - [x] Project: Archive Project (File > Project Tools > Export Project Archive / Restore Project Archive): copy the project and every media file it uses into one .dra folder, optionally with proxy media, optimized media and render cache, and restore such a folder (spec 175; commands `project archive`, `project restore-archive`)
 - [ ] Project: archive only the media the timelines use; restore into the Project Manager's library (spec 175.6)
 - [x] Media: metadata import and export (File > Import / Export): clip metadata of the Media Pool to and from a CSV file (spec 166)
 - [x] Interface: named layouts (Workspace > Layout Presets > Save Layout as Preset / Load / Delete): keep the panels and sizes of every page under a name (spec 167)
 - [ ] Interface: layout presets: window size and position, and export / import of a preset file
-- [ ] Interface: translations: a language choice in Preferences and translation files that volunteers can fill in
+- [x] Interface: translations: a language choice in Preferences and translation files that volunteers can fill in (spec 100; de, es, ru, uk, zero unfinished; test_translations)
 - [x] Deliver: lossless FFV1 video (Matroska, QuickTime; preset Lossless FFV1 + FLAC) and MP3 audio as export formats (spec 165)
 - [x] Platform: `kinoklip --graphics-check`: draws a test picture with the graphics card, reads it back, says whether video decodes on the card and why not, and prints a report for bug reports (spec 177)
 - [ ] Platform: a Flathub submission (the Kinoklip Flatpak repository exists, see "Next version")
 - [ ] Pages: compare the Media, Cut, Compositing, Color, Audio and Deliver pages with Resolve and add what is missing
-- [ ] Media: clone tool on the Media page
+- [x] Media: clone tool on the Media page (spec 196; command `media.clone`)
+- [ ] Media: Clone Tool extras: ASC MHL reports, xxHash64, a queue of jobs
 - [x] Deliver: render presets per platform: YouTube, Vimeo, X, TikTok, Instagram, Facebook (spec 165.3)
 - [ ] Titles: automatic subtitles
 - [x] Color: relative LUT paths for grade node and input LUTs (spec 168.1)
@@ -302,10 +303,12 @@ when the owner asks for it.
 - [ ] Audio: recording and ADR, plugins, surround formats, sound library
 - [ ] Audio: elastic wave, console mapping, VCAs, more effects
 - [ ] Project: pack with trimming (only the used parts of long clips plus handles) and image sequences inside single-file projects
-- [ ] Project: more than one project library, Open in a New Window, a cloud / shared library
+- [x] Project: more than one project library, Open in a New Window (spec 198)
+- [ ] Project: a cloud / shared project library
 - [x] Interchange: EDL export with more than one video track (spec 169.1)
 - [x] Edit: type a marker Duration in the Edit Index table (spec 169.2)
-- [ ] Platform: cache shaped clip names so painting a 1,500-clip timeline is cheaper
+- [x] Platform: cache shaped clip names so painting a 1,500-clip timeline is cheaper (spec 195)
+- [ ] Platform: measure the paint time after the clip name cache (spec 195.2) and keep the numbers
 - [ ] Edit: two-up trim view with the program look (effects, transforms) without lag
 - [ ] Platform: fewer dropped frames on the first play of 4K HEVC
 - [ ] Edit: every remaining Resolve behaviour and quirk, page by page, driven by [behavior-spec.md](behavior-spec.md) and the parity tests
