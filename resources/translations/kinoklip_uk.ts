@@ -8236,6 +8236,10 @@ Thank you for watching</source>
         <translation>Інтервал між кадрами</translation>
     </message>
     <message>
+        <source>Frame Step</source>
+        <translation>Крок кадрів</translation>
+    </message>
+    <message>
         <source>Framing Marks</source>
         <translation>Рамкові позначки</translation>
     </message>
@@ -8402,6 +8406,10 @@ Thank you for watching</source>
     <message>
         <source>Hexagons</source>
         <translation>Шестикутники</translation>
+    </message>
+    <message>
+        <source>Hides a person or object that walks through a steady shot: inside the region every pixel is taken from the frames before and after, where the object is somewhere else</source>
+        <translation>Приховує людину чи предмет, що проходить через нерухомий кадр: в області кожен піксель береться з кадрів до і після, де об’єкт перебуває в іншому місці</translation>
     </message>
     <message>
         <source>High</source>
@@ -8798,6 +8806,10 @@ Thank you for watching</source>
     <message>
         <source>Normal</source>
         <translation>Звичайний</translation>
+    </message>
+    <message>
+        <source>Object Removal</source>
+        <translation>Видалення об’єктів</translation>
     </message>
     <message>
         <source>Off</source>
@@ -17466,6 +17478,18 @@ Thank you for watching</source>
         <translation>Уся область</translation>
     </message>
     <message>
+        <source>Object Removal</source>
+        <translation>Видалення об’єктів</translation>
+    </message>
+    <message>
+        <source>Hides a person or object that walks through a steady shot: inside the region every pixel is taken from the frames before and after, where the object is somewhere else</source>
+        <translation>Приховує людину чи предмет, що проходить через нерухомий кадр: в області кожен піксель береться з кадрів до і після, де об’єкт перебуває в іншому місці</translation>
+    </message>
+    <message>
+        <source>Frame Step</source>
+        <translation>Крок кадрів</translation>
+    </message>
+    <message>
         <source>Patch Replacer</source>
         <translation>Заміна латкою</translation>
     </message>
@@ -19128,6 +19152,10 @@ Standard transition of this project</source>
         <translation>Недійсна роздільність виводу %1x%2.</translation>
     </message>
     <message>
+        <source>%1 cannot carry Rec.2020, PQ or HLG; use H.265, AV1 or ProRes.</source>
+        <translation>%1 не підтримує Rec.2020, PQ і HLG; використайте H.265, AV1 або ProRes.</translation>
+    </message>
+    <message>
         <source>The video bitrate must be positive.</source>
         <translation>Бітрейт відео має бути додатним.</translation>
     </message>
@@ -19166,10 +19194,6 @@ Standard transition of this project</source>
     <message>
         <source>VAAPI (Intel/AMD)</source>
         <translation>VAAPI (Intel/AMD)</translation>
-    </message>
-    <message>
-        <source>%1 cannot carry Rec.2020, PQ or HLG; use H.265 or AV1.</source>
-        <translation>%1 не може зберігати Rec.2020, PQ або HLG; використайте H.265 або AV1.</translation>
     </message>
     <message>
         <source>PQ and HLG need the Rec.2020 color space.</source>
@@ -19607,6 +19631,18 @@ Standard transition of this project</source>
     <message>
         <source>Follow Track</source>
         <translation>Слідувати за треком</translation>
+    </message>
+    <message>
+        <source>Make this mask follow the subject under it: tracks from the playhead to the end of the clip and back to its start, then keys the mask&apos;s position, scale and rotation</source>
+        <translation>Змушує цю маску слідувати за об’єктом під нею: відстежує від маркера до кінця кліпа й назад до початку, потім ставить ключі положення, масштабу та повороту маски</translation>
+    </message>
+    <message>
+        <source>Follow Subject</source>
+        <translation>Слідувати за об’єктом</translation>
+    </message>
+    <message>
+        <source>Tracking... %1 frames</source>
+        <translation>Відстеження... %1 кадрів</translation>
     </message>
     <message>
         <source>%n point, drawing in the viewer</source>
@@ -20261,6 +20297,22 @@ Drag one from the Effects library onto the clip, or add one here.</source>
     <message>
         <source>Cannot track: nothing to track.</source>
         <translation>Не вдалося відстежити: нічого відстежувати.</translation>
+    </message>
+    <message>
+        <source>Tracking cancelled. The mask is unchanged.</source>
+        <translation>Відстеження скасовано. Маску не змінено.</translation>
+    </message>
+    <message>
+        <source>The mask could not be keyed.</source>
+        <translation>Не вдалося поставити ключі на маску.</translation>
+    </message>
+    <message>
+        <source>Tracking stopped. Keys up to there: %1 frames.</source>
+        <translation>Відстеження зупинено. Ключі до цього місця: %1 кадрів.</translation>
+    </message>
+    <message>
+        <source>The mask follows its subject (%1 frames tracked).</source>
+        <translation>Маска слідує за об’єктом (відстежено кадрів: %1).</translation>
     </message>
     <message>
         <source>Tracking cancelled. The effect is unchanged.</source>
@@ -31877,6 +31929,18 @@ The timelines that use the project settings are converted: clips, markers and ef
         <translation>Мітка гами</translation>
     </message>
     <message>
+        <source>P3-D65</source>
+        <translation>P3-D65</translation>
+    </message>
+    <message>
+        <source>The primaries of the mastering display (HDR10 metadata); P3-D65 for most grading monitors</source>
+        <translation>Основні кольори майстер-дисплея (метадані HDR10); P3-D65 для більшості моніторів колірної корекції</translation>
+    </message>
+    <message>
+        <source>Mastering display</source>
+        <translation>Майстер-дисплей</translation>
+    </message>
+    <message>
         <source>Export alpha</source>
         <translation>Експортувати альфу</translation>
     </message>
@@ -32033,6 +32097,10 @@ The timelines that use the project settings are converted: clips, markers and ef
         <translation>Цей кодек не має керування бітрейтом</translation>
     </message>
     <message>
+        <source>Rec.2020, PQ and HLG need 10-bit H.265, AV1 or ProRes; this codec renders Rec.709 (sRGB for RGB image formats).</source>
+        <translation>Для Rec.2020, PQ і HLG потрібен 10-бітний H.265, AV1 або ProRes; цей кодек виводить Rec.709 (sRGB для RGB-форматів зображень).</translation>
+    </message>
+    <message>
         <source>This format has no audio</source>
         <translation>Цей формат не має аудіо</translation>
     </message>
@@ -32163,10 +32231,6 @@ The timelines that use the project settings are converted: clips, markers and ef
     <message>
         <source>MaxFALL</source>
         <translation>MaxFALL</translation>
-    </message>
-    <message>
-        <source>Rec.2020, PQ and HLG need 10-bit H.265 or AV1; this codec renders Rec.709 (sRGB for RGB image formats).</source>
-        <translation>Rec.2020, PQ і HLG потребують 10-бітний H.265 або AV1; цей кодек рендерить у Rec.709 (sRGB для RGB-форматів).</translation>
     </message>
     <message>
         <source>PQ and HLG are Rec.2020; choosing Rec.709 switches the gamma back to Rec.709</source>

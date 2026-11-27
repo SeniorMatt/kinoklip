@@ -17,7 +17,7 @@ set(KK_TESTS_RELEASE
 # Slower than about 5 s: whole-window pages, vim suites, stabilizer, process-level and render tests.
 set(KK_TESTS_FULL
   test_vimcmdline test_vimkeys test_vimoption test_vimpanels test_vimmixer test_compositingpage
-  test_stabilizer test_stabilizecommand test_stabilizejob test_stabilizeui test_stabilizerender
+  test_stabilizer test_stabilizecommand test_maskcommand test_stabilizejob test_stabilizeui test_stabilizerender
   test_livecontrol test_cutpage test_editkeys test_menulayout test_mainwindow test_singlefile
   test_menureference test_container test_polish2shots test_pagespring test_e2eflow
   test_bughunt12 test_inapphelp test_audiopage test_analyzerui test_trackeffectsui test_loudnessui test_trackers test_schemecolors

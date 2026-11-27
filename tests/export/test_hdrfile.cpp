@@ -81,7 +81,8 @@ class TestHdrFile : public QObject
     ExportSettings settings(const QString& codec, GammaTag gamma, const QString& name)
     {
         ExportSettings s;
-        s.container = QStringLiteral("mp4");
+        s.container = name.endsWith(QLatin1String(".mov")) ? QStringLiteral("mov")
+                                                           : QStringLiteral("mp4");
         s.video.codec = codec;
         s.video.colorSpace = ColorSpaceTag::Rec2020;
         s.video.gamma = gamma;
@@ -151,6 +152,69 @@ private Q_SLOTS:
         QCOMPARE(v.value(QStringLiteral("color_transfer")).toString(),
             QStringLiteral("arib-std-b67"));
         QVERIFY(!hasSideData(v, QStringLiteral("Mastering display metadata")));
+    }
+
+    void proresHdrFile()
+    {
+        if (QStandardPaths::findExecutable(QStringLiteral("ffprobe")).isEmpty())
+            QSKIP("ffprobe not installed");
+        if (!hasEncoder("prores_ks"))
+            QSKIP("prores_ks is not in this FFmpeg build");
+        for (const char* profile : {"hq", "4444"}) {
+            ExportSettings s = settings(QStringLiteral("prores"), GammaTag::Pq,
+                QStringLiteral("p_%1.mov").arg(QLatin1String(profile)));
+            s.video.profile = QLatin1String(profile);
+            s.video.hdr.primaries = MasterPrimaries::Rec2020;
+            s.normalize();
+            QVERIFY(s.video.isHdr());
+            QCOMPARE(s.video.profile, QLatin1String(profile));
+            const ExportResult r = render(s);
+            QVERIFY2(r.ok, qPrintable(r.error));
+            const QJsonObject v = probeVideo(s.outputPath);
+            QCOMPARE(v.value(QStringLiteral("codec_name")).toString(), QStringLiteral("prores"));
+            // 10-bit 4:2:2; ffprobe reports the decoder's format for 4444 (12-bit).
+            const QString fmt = v.value(QStringLiteral("pix_fmt")).toString();
+            QVERIFY2(fmt.contains(QStringLiteral("10le")) || fmt.contains(QStringLiteral("12le")),
+                qPrintable(fmt));
+            QCOMPARE(v.value(QStringLiteral("color_primaries")).toString(), QStringLiteral("bt2020"));
+            QCOMPARE(v.value(QStringLiteral("color_transfer")).toString(),
+                QStringLiteral("smpte2084"));
+            QCOMPARE(v.value(QStringLiteral("color_space")).toString(), QStringLiteral("bt2020nc"));
+            QVERIFY(hasSideData(v, QStringLiteral("Mastering display metadata")));
+            QVERIFY(hasSideData(v, QStringLiteral("Content light level metadata")));
+        }
+        // HLG in ProRes carries the tags and no HDR10 metadata.
+        ExportSettings hlg = settings(QStringLiteral("prores"), GammaTag::Hlg, QStringLiteral("h.mov"));
+        hlg.normalize();
+        QVERIFY2(render(hlg).ok, "prores hlg");
+        const QJsonObject h = probeVideo(hlg.outputPath);
+        QCOMPARE(h.value(QStringLiteral("color_transfer")).toString(), QStringLiteral("arib-std-b67"));
+        QVERIFY(!hasSideData(h, QStringLiteral("Mastering display metadata")));
+    }
+
+    void masteringDisplayPrimariesInTheFile()
+    {
+        if (QStandardPaths::findExecutable(QStringLiteral("ffprobe")).isEmpty())
+            QSKIP("ffprobe not installed");
+        if (!hasEncoder("libx265"))
+            QSKIP("libx265 is not in this FFmpeg build");
+        for (const MasterPrimaries mp : {MasterPrimaries::P3D65, MasterPrimaries::Rec2020}) {
+            ExportSettings s = settings(QStringLiteral("hevc"), GammaTag::Pq,
+                QStringLiteral("m_%1.mp4").arg(masterPrimariesId(mp)));
+            s.video.hdr.primaries = mp;
+            QVERIFY2(render(s).ok, "render");
+            const QJsonObject v = probeVideo(s.outputPath);
+            QString red;
+            for (const QJsonValue& sd : v.value(QStringLiteral("frame_side_data")).toArray()) {
+                if (sd.toObject().value(QStringLiteral("side_data_type")).toString()
+                    == QLatin1String("Mastering display metadata"))
+                    red = sd.toObject().value(QStringLiteral("red_x")).toString();
+            }
+            // 0.680 = 34000/50000 (P3), 0.708 = 35400/50000 (BT.2020)
+            QVERIFY2(!red.isEmpty(), "no mastering display data");
+            QCOMPARE(red, mp == MasterPrimaries::Rec2020 ? QStringLiteral("35400/50000")
+                                                         : QStringLiteral("34000/50000"));
+        }
     }
 
     void sdrFileStaysBt709()

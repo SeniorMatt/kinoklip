@@ -112,8 +112,12 @@ std::array<uint16_t, 3> SdrToHdr::convertPixel(int r, int g, int b) const
 
 QByteArray x265MasterDisplay(const HdrMetadata& hdr)
 {
-    // P3-D65: G(0.265, 0.690) B(0.150, 0.060) R(0.680, 0.320) WP(0.3127, 0.3290).
-    return "G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L("
+    // P3-D65: G(0.265, 0.690) B(0.150, 0.060) R(0.680, 0.320) WP(0.3127, 0.3290); BT.2020:
+    // G(0.170, 0.797) B(0.131, 0.046) R(0.708, 0.292). Units of 0.00002.
+    const QByteArray primaries = hdr.primaries == MasterPrimaries::Rec2020
+        ? "G(8500,39850)B(6550,2300)R(35400,14600)WP(15635,16450)"
+        : "G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)";
+    return primaries + "L("
         + QByteArray::number(qlonglong(std::llround(hdr.masterMaxNits * 10000.0))) + ","
         + QByteArray::number(qlonglong(std::llround(hdr.masterMinNits * 10000.0))) + ")";
 }
@@ -147,12 +151,15 @@ QByteArray svtAv1HdrParams(const VideoExportSettings& v)
         return {};
     // CICP numbers: primaries 9 = BT.2020, transfer 16 = PQ / 18 = HLG / 14 = BT.2020 10-bit,
     // matrix 9 = BT.2020 non-constant luminance; color-range 0 = studio.
+    const bool hdr2020 = v.hdr.primaries == MasterPrimaries::Rec2020;
     QByteArray p = "color-primaries=9:matrix-coefficients=9:color-range=0";
     switch (v.gamma) {
     case GammaTag::Pq:
         p += ":transfer-characteristics=16";
-        p += ":mastering-display=G(0.2650,0.6900)B(0.1500,0.0600)R(0.6800,0.3200)"
-             "WP(0.3127,0.3290)L("
+        p += hdr2020 ? ":mastering-display=G(0.1700,0.7970)B(0.1310,0.0460)R(0.7080,0.2920)"
+                       "WP(0.3127,0.3290)L("
+                     : ":mastering-display=G(0.2650,0.6900)B(0.1500,0.0600)R(0.6800,0.3200)"
+                       "WP(0.3127,0.3290)L("
             + QByteArray::number(v.hdr.masterMaxNits, 'f', 4) + ","
             + QByteArray::number(v.hdr.masterMinNits, 'f', 4) + ")";
         p += ":content-light=" + QByteArray::number(v.hdr.maxCll) + ","

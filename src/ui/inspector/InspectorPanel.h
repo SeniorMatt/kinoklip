@@ -3,6 +3,7 @@
 // Transition tabs), with editors built generically from EffectRegistry descriptors.
 #pragma once
 
+#include "compositing/tracking/MaskTrackJob.h"
 #include "core/EffectRegistry.h"
 #include "ui/common/PanelFrame.h"
 #include "ui/inspector/ParamEditHost.h"
@@ -28,7 +29,6 @@ namespace tracking {
 class StabilizeRunner;
 class TrackerRunner;
 enum class TrackOutcome;
-struct EffectTrackPlan;
 } // namespace tracking
 namespace retimeops {
 struct SpeedChange;
@@ -227,6 +227,11 @@ private:
     /// The Voice Isolation section of the Audio tab: a switch and an Amount (spec 141).
     void buildVoiceIsolationSection(quint64 audioClipId);
     void startEffectTrack(quint64 clipId, quint64 effectId, bool forward);
+    /// "Follow Subject" of a mask: tracks forward from the playhead, then back, and keys the
+    /// mask from the result (InspectorTrack.cpp, spec 187).
+    void startMaskTrack(quint64 clipId, quint64 maskId);
+    bool startMaskRun(bool forward);
+    void finishMaskTrack(kk::tracking::TrackOutcome outcome, const QString& reason);
     void onEffectTrackFinished(kk::tracking::TrackOutcome outcome, const QString& reason);
     // ---- Stabilization (InspectorStabilize.cpp) ----
     void buildStabilizationSection(const ClipData& clip);
@@ -290,6 +295,20 @@ private:
     /// The Track buttons of the tracking effects: one run at a time.
     tracking::TrackerRunner* m_effectTracker = nullptr;
     std::shared_ptr<tracking::EffectTrackPlan> m_trackPlan;
+    /// The mask being followed (the same runner): the plans of the runs, what they found.
+    struct MaskTrackState
+    {
+        quint64 clipId = 0;
+        quint64 maskId = 0;
+        int64_t playhead = 0;
+        bool forward = true; ///< the run that is going
+        std::shared_ptr<tracking::MaskTrackPlan> plan; ///< the first plan (the table's frame)
+        std::shared_ptr<tracking::MaskTrackPlan> current;
+        std::vector<tracking::TrackSample> samples;
+    };
+    std::shared_ptr<MaskTrackState> m_maskTrack;
+    QString m_maskTrackMessage; ///< last result line, shown in the mask m_maskTrackMessageMask
+    quint64 m_maskTrackMessageMask = 0;
     QString m_trackMessage; ///< last result line, shown in the effect m_trackPlan names
     quint64 m_trackMessageEffect = 0;
     QString

@@ -15,7 +15,7 @@ namespace {
 
 constexpr const char* kReaders[] = {fxid::Echo, fxid::Strobe, fxid::MotionTrails, fxid::Smear,
     fxid::FrameReplacer, fxid::TemporalMotionBlur, fxid::Deflicker, fxid::ColorStabilizer,
-    fxid::DirtRemoval, fxid::DustBuster};
+    fxid::DirtRemoval, fxid::DustBuster, fxid::ObjectRemoval};
 
 int intParam(const ParamSet& p, const QString& key, int64_t frame, int fallback, int lo, int hi)
 {
@@ -82,6 +82,17 @@ void framesRead(const QString& type, const ParamSet& p, int64_t f, std::vector<i
             out->push_back(f - i);
             out->push_back(f + i);
         }
+    } else if (type == QLatin1String(fxid::ObjectRemoval)) {
+        if (p.value(k::Amount, f, 100) <= 0.0)
+            return;
+        // The clean plate: two frames either side, Frame Step frames apart, so the object that
+        // covers the pixel now has moved on in most of them. Before the clip start the frames
+        // are taken from further ahead (the decoder would only repeat the first frame).
+        const int step = intParam(p, k::FrameStep, f, 12, 1, 250);
+        out->push_back(f - step >= 0 ? f - step : f + 3 * int64_t(step));
+        out->push_back(f + step);
+        out->push_back(f - 2 * int64_t(step) >= 0 ? f - 2 * int64_t(step) : f + 4 * int64_t(step));
+        out->push_back(f + 2 * int64_t(step));
     } else if (type == QLatin1String(fxid::ColorStabilizer)) {
         if (p.value(k::Strength, f, 100) <= 0.0)
             return;

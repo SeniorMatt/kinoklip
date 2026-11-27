@@ -176,7 +176,7 @@ Every entry of the Effects library that DaVinci Resolve is known to have from it
 | Dust Buster | Revival | Video effect | works |
 | Frame Replacer | Revival | Video effect | works |
 | Noise Reduction | Revival | Video effect | works |
-| Object Removal | Revival | Video effect | planned |
+| Object Removal | Revival | Video effect | works |
 | Patch Replacer | Revival | Video effect | works |
 | Sharpen | Sharpen | Video effect | works |
 | Sharpen Edges | Sharpen | Video effect | works |

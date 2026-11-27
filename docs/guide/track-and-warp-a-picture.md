@@ -35,6 +35,23 @@ the effect says **Track again**. The other settings change the picture at once. 
 throws the track away. The track is saved in the project with the clip and follows it when you
 trim, split or change its speed, but if you move the graphic against the footage, track again.
 
+## Make a mask follow a moving thing (Follow Subject)
+
+A mask you drew once can follow the thing under it by itself, without adding Match Move first.
+
+1. Put the playhead on a frame where the mask sits right over the thing (a face, a car, a sign).
+2. In the Inspector's Video tab open the mask and press **Track** in its **Follow Subject** row.
+3. The area under the mask is followed from the playhead to the end of the clip, then back to its
+   start. A status line counts the frames; **Cancel** stops, and the mask keeps the keys found so
+   far.
+4. The mask's position, scale and rotation now have a key on every frame, one undo step. It stays
+   where you put it at the playhead frame, and you can still move, key or delete the keys by hand.
+
+Choose a thing with some detail on it; a flat colour cannot be followed. The clip is tracked
+without its masks. From the command line: `kinoklip mask follow --clip 3 --mask 7 --at 00:00:02:00`.
+To follow with a different track (a Match Move you made on purpose), use the **Follow Track**
+row under it instead.
+
 ## Pin a graphic to a bending surface, or bend the picture (Surface Tracker)
 
 Use **Surface Tracker** when the thing moves and also bends or turns, like a flag, a sheet of

@@ -59,8 +59,8 @@ std::vector<AVPixelFormat> preferredFormats(const VideoEncoderConfig& c)
     if (c.backend == EncoderBackend::Vaapi || c.backend == EncoderBackend::Qsv) {
         return {AV_PIX_FMT_NV12};
     }
-    if (c.settings.wideGamut() && codecCarriesHdr(codec)) {
-        return {AV_PIX_FMT_YUV420P10LE}; // Main 10 / AV1 10-bit
+    if (c.settings.wideGamut() && codecCarriesHdr(codec) && codec != QLatin1String("prores")) {
+        return {AV_PIX_FMT_YUV420P10LE}; // Main 10 / AV1 10-bit (ProRes is 10-bit below)
     }
     if (codec == QLatin1String("prores")) {
         if (c.settings.profile.startsWith(QLatin1String("4444"))) {
@@ -127,13 +127,15 @@ void setOpt(AVDictionary** dict, const char* key, long long value)
 void addHdr10SideData(AVCodecContext* ctx, const HdrMetadata& hdr)
 {
     if (auto* m = av_mastering_display_metadata_alloc()) {
-        // P3-D65, same as x265MasterDisplay(); order is R, G, B.
-        m->display_primaries[0][0] = av_d2q(0.680, 50000);
-        m->display_primaries[0][1] = av_d2q(0.320, 50000);
-        m->display_primaries[1][0] = av_d2q(0.265, 50000);
-        m->display_primaries[1][1] = av_d2q(0.690, 50000);
-        m->display_primaries[2][0] = av_d2q(0.150, 50000);
-        m->display_primaries[2][1] = av_d2q(0.060, 50000);
+        // P3-D65 or BT.2020, same as x265MasterDisplay(); order is R, G, B.
+        const bool rec2020 = hdr.primaries == MasterPrimaries::Rec2020;
+        const double xy[3][2] = {{rec2020 ? 0.708 : 0.680, rec2020 ? 0.292 : 0.320},
+            {rec2020 ? 0.170 : 0.265, rec2020 ? 0.797 : 0.690},
+            {rec2020 ? 0.131 : 0.150, rec2020 ? 0.046 : 0.060}};
+        for (int i = 0; i < 3; ++i) {
+            m->display_primaries[i][0] = av_d2q(xy[i][0], 50000);
+            m->display_primaries[i][1] = av_d2q(xy[i][1], 50000);
+        }
         m->white_point[0] = av_d2q(0.3127, 50000);
         m->white_point[1] = av_d2q(0.3290, 50000);
         m->max_luminance = av_d2q(hdr.masterMaxNits, 10000);

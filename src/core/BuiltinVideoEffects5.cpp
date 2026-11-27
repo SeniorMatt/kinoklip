@@ -135,6 +135,21 @@ void EffectRegistry::registerVideoEffects5()
             px(k::Dilate, tr("Grow"), 0, 8, 2),
             percent(k::Amount, tr("Strength"), 0, 100, 100),
         }));
+    add(effect(fxid::ObjectRemoval, tr("Object Removal"), g::Revival,
+        tr("Hides a person or object that walks through a steady shot: inside the region every "
+           "pixel is taken from the frames before and after, where the object is somewhere else"),
+        {
+            choice(k::Shape, tr("Region Shape"),
+                {QStringLiteral("rectangle"), QStringLiteral("ellipse")},
+                {tr("Rectangle"), tr("Ellipse")}, QStringLiteral("rectangle")),
+            number(k::CenterX, tr("Center X"), -4000, 4000, 0, 1.0, kPx),
+            number(k::CenterY, tr("Center Y"), -4000, 4000, 0, 1.0, kPx),
+            px(k::Width, tr("Width"), 1, 8000, 400),
+            px(k::Height, tr("Height"), 1, 8000, 300),
+            px(k::Feather, tr("Feather"), 0, 500, 20),
+            fixedInt(k::FrameStep, tr("Frame Step"), 1, 250, 12, kFrames),
+            percent(k::Amount, tr("Strength"), 0, 100, 100),
+        }));
     add(effect(fxid::PatchReplacer, tr("Patch Replacer"), g::Revival,
         tr("Covers a blemish with a patch copied from another place in the same picture"),
         {

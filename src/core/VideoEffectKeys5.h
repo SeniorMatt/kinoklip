@@ -20,6 +20,7 @@ inline constexpr char ColorStabilizer[] = "color_stabilizer";
 inline constexpr char DirtRemoval[] = "automatic_dirt_removal";
 inline constexpr char DustBuster[] = "dust_buster";
 inline constexpr char PatchReplacer[] = "patch_replacer";
+inline constexpr char ObjectRemoval[] = "object_removal";
 } // namespace fxid
 
 namespace fxkeys {
@@ -46,6 +47,7 @@ inline const QString SourceY = QStringLiteral("sourceY");
 inline const QString TargetX = QStringLiteral("targetX");
 inline const QString TargetY = QStringLiteral("targetY");
 inline const QString RegionMode = QStringLiteral("regionMode");
+inline const QString FrameStep = QStringLiteral("frameStep");
 } // namespace fxkeys
 
 namespace fxchoice {

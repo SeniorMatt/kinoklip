@@ -8228,6 +8228,10 @@ Gracias por ver</translation>
         <translation>Espaciado de fotogramas</translation>
     </message>
     <message>
+        <source>Frame Step</source>
+        <translation>Paso de fotogramas</translation>
+    </message>
+    <message>
         <source>Framing Marks</source>
         <translation>Marcas de encuadre</translation>
     </message>
@@ -8394,6 +8398,10 @@ Gracias por ver</translation>
     <message>
         <source>Hexagons</source>
         <translation>Hexágonos</translation>
+    </message>
+    <message>
+        <source>Hides a person or object that walks through a steady shot: inside the region every pixel is taken from the frames before and after, where the object is somewhere else</source>
+        <translation>Oculta a una persona u objeto que cruza un plano fijo: dentro de la región cada píxel se toma de los fotogramas anteriores y posteriores, donde el objeto está en otro lugar</translation>
     </message>
     <message>
         <source>High</source>
@@ -8790,6 +8798,10 @@ Gracias por ver</translation>
     <message>
         <source>Normal</source>
         <translation>Normal</translation>
+    </message>
+    <message>
+        <source>Object Removal</source>
+        <translation>Eliminación de objetos</translation>
     </message>
     <message>
         <source>Off</source>
@@ -17453,6 +17465,18 @@ Gracias por ver</translation>
         <translation>Región completa</translation>
     </message>
     <message>
+        <source>Object Removal</source>
+        <translation>Eliminación de objetos</translation>
+    </message>
+    <message>
+        <source>Hides a person or object that walks through a steady shot: inside the region every pixel is taken from the frames before and after, where the object is somewhere else</source>
+        <translation>Oculta a una persona u objeto que cruza un plano fijo: dentro de la región cada píxel se toma de los fotogramas anteriores y posteriores, donde el objeto está en otro lugar</translation>
+    </message>
+    <message>
+        <source>Frame Step</source>
+        <translation>Paso de fotogramas</translation>
+    </message>
+    <message>
         <source>Patch Replacer</source>
         <translation>Reemplazo de parche</translation>
     </message>
@@ -19115,6 +19139,10 @@ Transición estándar de este proyecto</translation>
         <translation>Resolución de salida no válida %1x%2.</translation>
     </message>
     <message>
+        <source>%1 cannot carry Rec.2020, PQ or HLG; use H.265, AV1 or ProRes.</source>
+        <translation>%1 no admite Rec.2020, PQ ni HLG; use H.265, AV1 o ProRes.</translation>
+    </message>
+    <message>
         <source>The video bitrate must be positive.</source>
         <translation>La tasa de bits del vídeo debe ser positiva.</translation>
     </message>
@@ -19153,10 +19181,6 @@ Transición estándar de este proyecto</translation>
     <message>
         <source>VAAPI (Intel/AMD)</source>
         <translation>VAAPI (Intel/AMD)</translation>
-    </message>
-    <message>
-        <source>%1 cannot carry Rec.2020, PQ or HLG; use H.265 or AV1.</source>
-        <translation>%1 no puede guardar Rec.2020, PQ ni HLG; usa H.265 o AV1.</translation>
     </message>
     <message>
         <source>PQ and HLG need the Rec.2020 color space.</source>
@@ -19594,6 +19618,18 @@ Transición estándar de este proyecto</translation>
     <message>
         <source>Follow Track</source>
         <translation>Seguir seguimiento</translation>
+    </message>
+    <message>
+        <source>Make this mask follow the subject under it: tracks from the playhead to the end of the clip and back to its start, then keys the mask&apos;s position, scale and rotation</source>
+        <translation>Hace que esta máscara siga al sujeto que tiene debajo: sigue desde el cabezal hasta el final del clip y de vuelta al inicio, y luego crea fotogramas clave de posición, escala y rotación de la máscara</translation>
+    </message>
+    <message>
+        <source>Follow Subject</source>
+        <translation>Seguir sujeto</translation>
+    </message>
+    <message>
+        <source>Tracking... %1 frames</source>
+        <translation>Seguimiento... %1 fotogramas</translation>
     </message>
     <message>
         <source>%n point, drawing in the viewer</source>
@@ -20247,6 +20283,22 @@ Arrastrar una desde la biblioteca de efectos al clip, o añadir una aquí.</tran
     <message>
         <source>Cannot track: nothing to track.</source>
         <translation>No se puede seguir: no hay nada que seguir.</translation>
+    </message>
+    <message>
+        <source>Tracking cancelled. The mask is unchanged.</source>
+        <translation>Seguimiento cancelado. La máscara no ha cambiado.</translation>
+    </message>
+    <message>
+        <source>The mask could not be keyed.</source>
+        <translation>No se pudieron crear los fotogramas clave de la máscara.</translation>
+    </message>
+    <message>
+        <source>Tracking stopped. Keys up to there: %1 frames.</source>
+        <translation>Seguimiento detenido. Fotogramas clave hasta ahí: %1 fotogramas.</translation>
+    </message>
+    <message>
+        <source>The mask follows its subject (%1 frames tracked).</source>
+        <translation>La máscara sigue a su sujeto (%1 fotogramas seguidos).</translation>
     </message>
     <message>
         <source>Tracking cancelled. The effect is unchanged.</source>
@@ -31854,6 +31906,18 @@ Las líneas de tiempo que usan los ajustes del proyecto se convierten: los clips
         <translation>Etiqueta de gamma</translation>
     </message>
     <message>
+        <source>P3-D65</source>
+        <translation>P3-D65</translation>
+    </message>
+    <message>
+        <source>The primaries of the mastering display (HDR10 metadata); P3-D65 for most grading monitors</source>
+        <translation>Los primarios de la pantalla de masterización (metadatos HDR10); P3-D65 para la mayoría de los monitores de gradación</translation>
+    </message>
+    <message>
+        <source>Mastering display</source>
+        <translation>Pantalla de masterización</translation>
+    </message>
+    <message>
         <source>Export alpha</source>
         <translation>Exportar alfa</translation>
     </message>
@@ -32010,6 +32074,10 @@ Las líneas de tiempo que usan los ajustes del proyecto se convierten: los clips
         <translation>Este códec no tiene control de tasa de bits</translation>
     </message>
     <message>
+        <source>Rec.2020, PQ and HLG need 10-bit H.265, AV1 or ProRes; this codec renders Rec.709 (sRGB for RGB image formats).</source>
+        <translation>Rec.2020, PQ y HLG requieren H.265 de 10 bits, AV1 o ProRes; este códec renderiza Rec.709 (sRGB para formatos de imagen RGB).</translation>
+    </message>
+    <message>
         <source>This format has no audio</source>
         <translation>Este formato no tiene audio</translation>
     </message>
@@ -32140,10 +32208,6 @@ Las líneas de tiempo que usan los ajustes del proyecto se convierten: los clips
     <message>
         <source>MaxFALL</source>
         <translation>MaxFALL</translation>
-    </message>
-    <message>
-        <source>Rec.2020, PQ and HLG need 10-bit H.265 or AV1; this codec renders Rec.709 (sRGB for RGB image formats).</source>
-        <translation>Rec.2020, PQ y HLG necesitan H.265 o AV1 de 10 bits; este códec renderiza Rec.709 (sRGB en formatos de imagen RGB).</translation>
     </message>
     <message>
         <source>PQ and HLG are Rec.2020; choosing Rec.709 switches the gamma back to Rec.709</source>

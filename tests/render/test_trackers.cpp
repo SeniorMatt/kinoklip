@@ -6,6 +6,8 @@
 // sheet trackers.png when KK_EFFECT_SHEETS is set.
 #include "RenderTestUtil.h"
 #include "compositing/tracking/EffectTrackJob.h"
+#include "compositing/tracking/MaskTrackJob.h"
+#include "core/Mask.h"
 #include "core/EffectRegistry.h"
 #include "core/EffectTrack.h"
 #include "core/MatchMove.h"
@@ -699,6 +701,110 @@ private slots:
         row(2, QStringLiteral("Surface Tracker (Warp) with a stored mesh moved 0, 5, 10, 20 % right"), surfaceWarp);
         p.end();
         QVERIFY(sheet.save(out + QStringLiteral("/trackers.png")));
+    }
+
+    // ---- Follow Subject: a mask drawn once follows what is under it (spec 187) ----
+
+    /// Runs the mask's track forward then back from @p playhead and keys the mask.
+    bool followMask(TimelineData& tl, quint64 clipId, quint64 maskId, int64_t playhead)
+    {
+        std::vector<TrackSample> all;
+        std::optional<MaskTrackPlan> first;
+        for (const bool forward : {true, false}) {
+            QString why;
+            auto plan = planMaskTrack(tl, clipId, maskId, playhead, forward, &why);
+            if (!plan) {
+                qWarning("plan: %s", qPrintable(why));
+                return false;
+            }
+            QString error;
+            const auto samples = runJob(plan->track, &error);
+            qInfo("mask track %s: %d samples, %s", forward ? "forward" : "backward",
+                int(samples.size()), qPrintable(error));
+            all.insert(all.end(), samples.begin(), samples.end());
+            if (!first)
+                first = std::move(plan);
+        }
+        for (TrackData& track : tl.videoTracks) {
+            for (ClipData& c : track.clips) {
+                if (c.id == clipId)
+                    return storeMaskTrack(c, *first, all, QSizeF(tl.width, tl.height), tl.fps);
+            }
+        }
+        return false;
+    }
+
+    void aMaskFollowsItsSubject()
+    {
+        if (!gpuReady())
+            QSKIP("no OpenGL");
+        TimelineData tl = emptyTimeline(kW, kH);
+        ClipData clip = mediaClip(tl, QStringLiteral("plane"), 0, 40, 0, 0);
+        MaskData ellipse = makeMask(MaskShape::Ellipse, tl.allocateId(), QSizeF(90, 70));
+        ellipse.params.setBase(maskkeys::PosX, -20);
+        ellipse.params.setBase(maskkeys::PosY, 10);
+        const quint64 maskId = ellipse.id;
+        clip.masks.append(ellipse);
+        const quint64 clipId = clip.id;
+        addClip(tl, TrackType::Video, 0, std::move(clip));
+        QVERIFY(followMask(tl, clipId, maskId, 20));
+        const MaskData& m = tl.videoTracks[0].clips[0].masks[0];
+        QVERIFY(m.params.values.value(maskkeys::PosX).isAnimated());
+        // The footage moves 3 px right and 2 px down per frame; the mask keeps its place at the
+        // playhead and moves with it.
+        for (const int f : {0, 10, 20, 30, 39}) {
+            QVERIFY2(std::abs(m.value(maskkeys::PosX, f) - (-20 + 3.0 * (f - 20))) < 2.5,
+                qPrintable(QStringLiteral("x at %1: %2").arg(f).arg(m.value(maskkeys::PosX, f))));
+            QVERIFY2(std::abs(m.value(maskkeys::PosY, f) - (10 + 2.0 * (f - 20))) < 2.5,
+                qPrintable(QStringLiteral("y at %1: %2").arg(f).arg(m.value(maskkeys::PosY, f))));
+            QVERIFY(std::abs(m.value(maskkeys::ScaleX, f) - 1.0) < 0.05);
+        }
+        QVERIFY(std::abs(m.value(maskkeys::PosX, 20) - -20) < 1e-3);
+    }
+
+    void maskFollowRefusals()
+    {
+        TimelineData tl = emptyTimeline(kW, kH);
+        ClipData clip = mediaClip(tl, QStringLiteral("plane"), 0, 40, 0, 0);
+        MaskData poly = makeMask(MaskShape::Polygon, tl.allocateId(), QSizeF(60, 40));
+        const quint64 polyId = poly.id;
+        MaskData ok = makeMask(MaskShape::Rectangle, tl.allocateId(), QSizeF(60, 40));
+        const quint64 okId = ok.id;
+        clip.masks = {poly, ok};
+        const quint64 clipId = clip.id;
+        addClip(tl, TrackType::Video, 0, std::move(clip));
+        QString why;
+        // A polygon with no points yet has no shape.
+        QVERIFY(planMaskTrack(tl, clipId, polyId, 5, true, &why) == std::nullopt);
+        QVERIFY(why.contains(QStringLiteral("shape")));
+        QVERIFY(planMaskTrack(tl, clipId, okId + 99, 5, true, &why) == std::nullopt);
+        QVERIFY(planMaskTrack(tl, clipId + 99, okId, 5, true, &why) == std::nullopt);
+        QVERIFY(planMaskTrack(tl, clipId, okId, 400, true, &why) == std::nullopt);
+        // The region is the mask's outline, and the clip is tracked without its masks.
+        const auto plan = planMaskTrack(tl, clipId, okId, 5, true, &why);
+        QVERIFY2(plan, qPrintable(why));
+        QVERIFY(plan->track.timeline->videoTracks[0].clips[0].masks.isEmpty());
+        QVERIFY(std::abs(plan->region.center().x()) < 1e-6);
+        QVERIFY(plan->region.width() > 60);
+        QCOMPARE(plan->offsetFrame, int64_t(5));
+        QVERIFY(plan->track.job.planar);
+        // Too few samples key nothing.
+        TimelineData copy = tl;
+        QVERIFY(!storeMaskTrack(copy.videoTracks[0].clips[0], *plan, {}, QSizeF(kW, kH), tl.fps));
+    }
+
+    void maskBoundsFollowTheShape()
+    {
+        MaskData r = makeMask(MaskShape::Rectangle, 1, QSizeF(80, 40));
+        r.params.setBase(maskkeys::PosX, 30);
+        r.params.setBase(maskkeys::PosY, -10);
+        QCOMPARE(maskBounds(r, 0), QRectF(-10, -30, 80, 40));
+        r.params.setBase(maskkeys::ScaleX, 2.0);
+        QCOMPARE(maskBounds(r, 0), QRectF(-50, -30, 160, 40));
+        MaskData p = makeMask(MaskShape::Polygon, 2, QSizeF(60, 40));
+        QVERIFY(maskBounds(p, 0).isNull());
+        p.path.shapes = {MaskPath {MaskPoint {-10, -10}, MaskPoint {30, -10}, MaskPoint {0, 20}}};
+        QCOMPARE(maskBounds(p, 0), QRectF(-10, -10, 40, 30));
     }
 
     void refusals()

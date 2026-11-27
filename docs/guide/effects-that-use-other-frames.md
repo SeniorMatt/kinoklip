@@ -64,6 +64,15 @@ A few things hold for all of them:
   **Repair** can be **Detected Dirt**, or **Whole Region**, which replaces everything inside the
   region with what the frames around show there. There is no on-screen handle for the region yet;
   type its position and size.
+- **Object Removal.** Hides a person or object that walks through a steady shot. Place the
+  **Region** (**Region Shape**, **Center X / Y**, **Width**, **Height**, **Feather**) over the
+  object; inside it every pixel is taken from the frames before and after, where the object has
+  moved on. **Frame Step** is how many frames apart those frames are: choose it so the object has
+  left the spot by then (a walking person needs about half a second, 12 frames at 25 fps). Four
+  frames are read, two on each side, so the object must be gone from at least three of them.
+  **Strength** mixes the result with the original. The picture must be steady (a tripod shot, or
+  stabilize the clip first); keyframe **Center X / Y** to move the region with the object. No AI
+  model is used.
 - **Patch Replacer.** Covers a blemish with a patch copied from another place in the same
   picture. **Source X / Y** is where the patch comes from, **Target X / Y** where it goes
   (pixels from the middle of the picture), **Width**, **Height**, **Patch Shape**, **Feather** and

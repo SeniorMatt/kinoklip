@@ -66,13 +66,22 @@ enum class GammaTag {
 [[nodiscard]] QString gammaTagId(GammaTag tag);
 [[nodiscard]] GammaTag gammaTagFromId(const QString& id, GammaTag fallback);
 
-/// True for the codecs that can carry Rec.2020 / PQ / HLG in Kinoklip (10-bit H.265 and AV1).
+/// True for the codecs that can carry Rec.2020 / PQ / HLG in Kinoklip (10-bit H.265, AV1 and
+/// ProRes 422 / 4444, which the QuickTime / mov muxer tags like the others).
 [[nodiscard]] bool codecCarriesHdr(const QString& codecId);
 
-/// HDR10 static metadata written with PQ renders (SMPTE ST 2086 and CTA-861.3). The mastering
-/// display primaries are fixed to P3-D65, the usual grading monitor.
+/// Primaries of the mastering display written into the HDR10 metadata (SMPTE ST 2086).
+enum class MasterPrimaries {
+    P3D65, ///< DCI-P3 with the D65 white point: the usual grading monitor (the default)
+    Rec2020 ///< BT.2020 primaries (a laser / quantum dot reference display)
+};
+[[nodiscard]] QString masterPrimariesId(MasterPrimaries p);
+[[nodiscard]] MasterPrimaries masterPrimariesFromId(const QString& id, MasterPrimaries fallback);
+
+/// HDR10 static metadata written with PQ renders (SMPTE ST 2086 and CTA-861.3).
 struct HdrMetadata
 {
+    MasterPrimaries primaries = MasterPrimaries::P3D65; ///< mastering display primaries
     double masterMaxNits = 1000.0; ///< mastering display peak luminance
     double masterMinNits = 0.0001; ///< mastering display black level
     int maxCll = 1000; ///< MaxCLL: brightest pixel of the programme, nits

@@ -8228,6 +8228,10 @@ Danke fürs Zuschauen</translation>
         <translation>Frame-Abstand</translation>
     </message>
     <message>
+        <source>Frame Step</source>
+        <translation>Bildschritt</translation>
+    </message>
+    <message>
         <source>Framing Marks</source>
         <translation>Bildmarken</translation>
     </message>
@@ -8394,6 +8398,10 @@ Danke fürs Zuschauen</translation>
     <message>
         <source>Hexagons</source>
         <translation>Sechsecke</translation>
+    </message>
+    <message>
+        <source>Hides a person or object that walks through a steady shot: inside the region every pixel is taken from the frames before and after, where the object is somewhere else</source>
+        <translation>Verbirgt eine Person oder ein Objekt, das durch eine ruhige Einstellung läuft: Im Bereich wird jedes Pixel aus den Bildern davor und danach genommen, wo das Objekt woanders ist</translation>
     </message>
     <message>
         <source>High</source>
@@ -8790,6 +8798,10 @@ Danke fürs Zuschauen</translation>
     <message>
         <source>Normal</source>
         <translation>Normal</translation>
+    </message>
+    <message>
+        <source>Object Removal</source>
+        <translation>Objektentfernung</translation>
     </message>
     <message>
         <source>Off</source>
@@ -17453,6 +17465,18 @@ Danke fürs Zuschauen</translation>
         <translation>Ganze Region</translation>
     </message>
     <message>
+        <source>Object Removal</source>
+        <translation>Objektentfernung</translation>
+    </message>
+    <message>
+        <source>Hides a person or object that walks through a steady shot: inside the region every pixel is taken from the frames before and after, where the object is somewhere else</source>
+        <translation>Verbirgt eine Person oder ein Objekt, das durch eine ruhige Einstellung läuft: Im Bereich wird jedes Pixel aus den Bildern davor und danach genommen, wo das Objekt woanders ist</translation>
+    </message>
+    <message>
+        <source>Frame Step</source>
+        <translation>Bildschritt</translation>
+    </message>
+    <message>
         <source>Patch Replacer</source>
         <translation>Patch-Ersetzer</translation>
     </message>
@@ -19115,6 +19139,10 @@ Standardübergang dieses Projekts</translation>
         <translation>Ungültige Ausgabeauflösung %1x%2.</translation>
     </message>
     <message>
+        <source>%1 cannot carry Rec.2020, PQ or HLG; use H.265, AV1 or ProRes.</source>
+        <translation>%1 kann Rec.2020, PQ oder HLG nicht enthalten; verwenden Sie H.265, AV1 oder ProRes.</translation>
+    </message>
+    <message>
         <source>The video bitrate must be positive.</source>
         <translation>Die Video-Bitrate muss positiv sein.</translation>
     </message>
@@ -19153,10 +19181,6 @@ Standardübergang dieses Projekts</translation>
     <message>
         <source>VAAPI (Intel/AMD)</source>
         <translation>VAAPI (Intel/AMD)</translation>
-    </message>
-    <message>
-        <source>%1 cannot carry Rec.2020, PQ or HLG; use H.265 or AV1.</source>
-        <translation>%1 kann Rec.2020, PQ oder HLG nicht speichern; nutze H.265 oder AV1.</translation>
     </message>
     <message>
         <source>PQ and HLG need the Rec.2020 color space.</source>
@@ -19594,6 +19618,18 @@ Standardübergang dieses Projekts</translation>
     <message>
         <source>Follow Track</source>
         <translation>Spur folgen</translation>
+    </message>
+    <message>
+        <source>Make this mask follow the subject under it: tracks from the playhead to the end of the clip and back to its start, then keys the mask&apos;s position, scale and rotation</source>
+        <translation>Lässt diese Maske dem Motiv darunter folgen: verfolgt von der Abspielposition bis zum Clipende und zurück zum Anfang und setzt dann Keyframes für Position, Skalierung und Drehung der Maske</translation>
+    </message>
+    <message>
+        <source>Follow Subject</source>
+        <translation>Motiv folgen</translation>
+    </message>
+    <message>
+        <source>Tracking... %1 frames</source>
+        <translation>Tracking ... %1 Bilder</translation>
     </message>
     <message>
         <source>%n point, drawing in the viewer</source>
@@ -20247,6 +20283,22 @@ Einen aus der Effekte-Bibliothek auf den Clip ziehen oder hier einen hinzufügen
     <message>
         <source>Cannot track: nothing to track.</source>
         <translation>Verfolgen nicht möglich: nichts zu verfolgen.</translation>
+    </message>
+    <message>
+        <source>Tracking cancelled. The mask is unchanged.</source>
+        <translation>Tracking abgebrochen. Die Maske ist unverändert.</translation>
+    </message>
+    <message>
+        <source>The mask could not be keyed.</source>
+        <translation>Die Maske konnte nicht mit Keyframes versehen werden.</translation>
+    </message>
+    <message>
+        <source>Tracking stopped. Keys up to there: %1 frames.</source>
+        <translation>Tracking angehalten. Keyframes bis dorthin: %1 Bilder.</translation>
+    </message>
+    <message>
+        <source>The mask follows its subject (%1 frames tracked).</source>
+        <translation>Die Maske folgt ihrem Motiv (%1 Bilder verfolgt).</translation>
     </message>
     <message>
         <source>Tracking cancelled. The effect is unchanged.</source>
@@ -31854,6 +31906,18 @@ Die Timelines, die die Projekteinstellungen verwenden, werden umgerechnet: Clips
         <translation>Gamma-Tag</translation>
     </message>
     <message>
+        <source>P3-D65</source>
+        <translation>P3-D65</translation>
+    </message>
+    <message>
+        <source>The primaries of the mastering display (HDR10 metadata); P3-D65 for most grading monitors</source>
+        <translation>Die Primärfarben des Mastering-Displays (HDR10-Metadaten); P3-D65 für die meisten Grading-Monitore</translation>
+    </message>
+    <message>
+        <source>Mastering display</source>
+        <translation>Mastering-Display</translation>
+    </message>
+    <message>
         <source>Export alpha</source>
         <translation>Alpha exportieren</translation>
     </message>
@@ -32010,6 +32074,10 @@ Die Timelines, die die Projekteinstellungen verwenden, werden umgerechnet: Clips
         <translation>Dieser Codec hat keine Bitratensteuerung</translation>
     </message>
     <message>
+        <source>Rec.2020, PQ and HLG need 10-bit H.265, AV1 or ProRes; this codec renders Rec.709 (sRGB for RGB image formats).</source>
+        <translation>Rec.2020, PQ und HLG benötigen 10-Bit-H.265, AV1 oder ProRes; dieser Codec rendert Rec.709 (sRGB bei RGB-Bildformaten).</translation>
+    </message>
+    <message>
         <source>This format has no audio</source>
         <translation>Dieses Format hat kein Audio</translation>
     </message>
@@ -32140,10 +32208,6 @@ Die Timelines, die die Projekteinstellungen verwenden, werden umgerechnet: Clips
     <message>
         <source>MaxFALL</source>
         <translation>MaxFALL</translation>
-    </message>
-    <message>
-        <source>Rec.2020, PQ and HLG need 10-bit H.265 or AV1; this codec renders Rec.709 (sRGB for RGB image formats).</source>
-        <translation>Rec.2020, PQ und HLG brauchen 10-Bit-H.265 oder -AV1; dieser Codec rendert Rec.709 (sRGB bei RGB-Bildformaten).</translation>
     </message>
     <message>
         <source>PQ and HLG are Rec.2020; choosing Rec.709 switches the gamma back to Rec.709</source>

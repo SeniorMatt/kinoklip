@@ -472,6 +472,13 @@ QWidget* RenderSettingsPanel::buildVideoTab()
     m_gamma->addItem(tr("ST 2084 (PQ)"), gammaTagId(GammaTag::Pq));
     m_gamma->addItem(tr("HLG"), gammaTagId(GammaTag::Hlg));
     m_videoForm->addRow(tr("Gamma tag"), m_gamma);
+    m_masterPrimaries = new QComboBox;
+    m_masterPrimaries->setObjectName(QStringLiteral("RenderMasterPrimaries"));
+    m_masterPrimaries->addItem(tr("P3-D65"), masterPrimariesId(MasterPrimaries::P3D65));
+    m_masterPrimaries->addItem(tr("Rec.2020"), masterPrimariesId(MasterPrimaries::Rec2020));
+    m_masterPrimaries->setToolTip(
+        tr("The primaries of the mastering display (HDR10 metadata); P3-D65 for most grading monitors"));
+    m_videoForm->addRow(tr("Mastering display"), m_masterPrimaries);
     m_maxCll = new QSpinBox;
     m_maxCll->setObjectName(QStringLiteral("RenderMaxCll"));
     m_maxCll->setRange(0, 10000);
@@ -495,7 +502,7 @@ QWidget* RenderSettingsPanel::buildVideoTab()
         connect(button, &QAbstractButton::toggled, this, changed);
     }
     for (QComboBox* combo : {m_format, m_codec, m_encoder, m_profile, m_resolution, m_speed,
-             m_colorSpace, m_gamma})
+             m_colorSpace, m_gamma, m_masterPrimaries})
         connect(combo, &QComboBox::currentIndexChanged, this, changed);
     connect(m_qualityLevel, &QComboBox::currentIndexChanged, this, [this] {
         // A named level writes its value into the spin box (the value is what is stored).
@@ -776,6 +783,8 @@ ExportSettings RenderSettingsPanel::settings() const
     s.video.colorSpace
         = colorSpaceTagFromId(m_colorSpace->currentData().toString(), ColorSpaceTag::Rec709);
     s.video.gamma = gammaTagFromId(m_gamma->currentData().toString(), GammaTag::Rec709);
+    s.video.hdr.primaries
+        = masterPrimariesFromId(m_masterPrimaries->currentData().toString(), s.video.hdr.primaries);
     s.video.hdr.maxCll = m_maxCll->value(); // the mastering display values stay as loaded
     s.video.hdr.maxFall = m_maxFall->value();
     s.audio.enabled = m_audioEnabled->isChecked();
@@ -886,6 +895,8 @@ void RenderSettingsPanel::setSettings(const ExportSettings& input)
     m_alpha->setChecked(s.video.alpha);
     selectData(m_colorSpace, colorSpaceTagId(s.video.colorSpace));
     selectData(m_gamma, gammaTagId(s.video.gamma));
+    if (const int i = m_masterPrimaries->findData(masterPrimariesId(s.video.hdr.primaries)); i >= 0)
+        m_masterPrimaries->setCurrentIndex(i);
     m_maxCll->setValue(s.video.hdr.maxCll);
     m_maxFall->setValue(s.video.hdr.maxFall);
 
@@ -1026,7 +1037,7 @@ void RenderSettingsPanel::updateVisibility()
     const bool hdrCodec = codec && codecCarriesHdr(codec->id);
     const QString hdrWhy = hdrCodec
         ? QString()
-        : tr("Rec.2020, PQ and HLG need 10-bit H.265 or AV1; this codec renders Rec.709 "
+        : tr("Rec.2020, PQ and HLG need 10-bit H.265, AV1 or ProRes; this codec renders Rec.709 "
              "(sRGB for RGB image formats).");
     for (QComboBox* combo : {m_colorSpace, m_gamma}) {
         combo->setEnabled(hdrCodec);
@@ -1035,6 +1046,8 @@ void RenderSettingsPanel::updateVisibility()
     if (hdrCodec && s.video.isHdr())
         m_colorSpace->setToolTip(
             tr("PQ and HLG are Rec.2020; choosing Rec.709 switches the gamma back to Rec.709"));
+    m_videoForm->setRowVisible(
+        m_masterPrimaries, videoOn && hdrCodec && s.video.gamma == GammaTag::Pq);
     m_videoForm->setRowVisible(m_maxCll, videoOn && hdrCodec && s.video.gamma == GammaTag::Pq);
     m_videoForm->setRowVisible(m_maxFall, videoOn && hdrCodec && s.video.gamma == GammaTag::Pq);
     bool alphaPossible = codec && codec->alphaCapable;
