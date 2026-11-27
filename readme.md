@@ -68,7 +68,7 @@ More ways (NixOS, Arch Linux, building from source): [Installing Kinoklip](docs/
 ## Status
 
 <!-- status:start -->
-![Status: 86.26% of the roadmap items are done, 93.44% of the effects library works](docs/images/status.svg)
+![Status: 86.31% of the roadmap items are done, 97.27% of the effects library works](docs/images/status.svg)
 
 Green is done, grey is still to do. Details: [roadmap](docs/roadmap.md) and [effects library](docs/effects-library-status.md).
 <!-- status:end -->
