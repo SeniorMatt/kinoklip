@@ -691,11 +691,13 @@ void GlRenderer::render(RenderJob& job)
     const ClipData* compClipOwner = nullptr;
     std::optional<ClipData> defaultOwner;
     std::optional<TransitionSpan> viewSpan; // set: the node belongs to a transition's graph
+    int ownerTrack = -1;
     if (rq.compositionNode) {
         for (const TrackData& track : tl.videoTracks) {
             const int i = track.indexOfClip(rq.compositionNode->clipId);
             if (i >= 0) {
                 compClipOwner = &track.clips[size_t(i)];
+                ownerTrack = int(&track - tl.videoTracks.data());
                 if (rq.compositionNode->transition)
                     viewSpan = ownTransition(track, i, rq.compositionNode->transition == 2);
             }
@@ -719,7 +721,11 @@ void GlRenderer::render(RenderJob& job)
         }
         if (compClipOwner) {
             fc.frame = compClipOwner->start + rq.compositionNode->compFrame;
-            queueDecode(compClipOwner, fc.frame, fc.frame + 1, tl, tl.nested, job.media.get(), 0);
+            if (compClipOwner->kind == ClipKind::Adjustment)
+                // Its MediaIn is the picture of the tracks below it (issue #19): decode those.
+                queueTimeline(tl, fc.frame, fc.frame + 1, tl.nested, job.media.get(), 0);
+            else
+                queueDecode(compClipOwner, fc.frame, fc.frame + 1, tl, tl.nested, job.media.get(), 0);
         }
     } else {
         queueTimeline(tl, rq.frame, rq.frame + 1, tl.nested, job.media.get(), 0);
@@ -748,6 +754,15 @@ void GlRenderer::render(RenderJob& job)
                 m_kit->blit(node->texture, kFullscreenNdc);
             }
         } else if (compClipOwner && compClipOwner->composition) {
+            // An adjustment clip's MediaIn: the composite of the tracks below it, as on the
+            // timeline (issue #19: the viewer was black).
+            PooledTarget below;
+            if (compClipOwner->kind == ClipKind::Adjustment && ownerTrack >= 0) {
+                FrameContext under = fc;
+                under.tracksBelow = ownerTrack;
+                below = compositeTimeline(under);
+                fc.below = below->texture;
+            }
             const RenderTarget* node
                 = compositionTarget(*compClipOwner, rq.compositionNode->compFrame, fc, 1.0,
                     rq.compositionNode->nodeId, out, std::min(fc.sx, fc.sy));
@@ -833,7 +848,10 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
 {
     std::vector<TrackFrame>& frames = m_trackFrames[size_t(fc.depth)];
     frames.clear();
-    for (const TrackData& track : fc.timeline->videoTracks) {
+    for (size_t t = 0; t < fc.timeline->videoTracks.size(); ++t) {
+        const TrackData& track = fc.timeline->videoTracks[t];
+        if (fc.tracksBelow >= 0 && int(t) >= fc.tracksBelow)
+            break;
         if (!track.enabled)
             continue;
         TrackFrame tf = evaluateTrack(track, fc.frame);
@@ -866,7 +884,7 @@ PooledTarget GlRenderer::compositeTimeline(const FrameContext& fc)
         accumulator = std::move(blended);
     }
     // The timeline grade (Color page): over the composite of every track, before the captions.
-    if (fc.grades && !fc.timeline->grade.isEmpty()
+    if (fc.grades && fc.tracksBelow < 0 && !fc.timeline->grade.isEmpty()
         && !gradeops::isIdentity(fc.timeline->grade, fc.frame)) {
         grademath::PictureGeometry g;
         g.width = fc.outSize.width();

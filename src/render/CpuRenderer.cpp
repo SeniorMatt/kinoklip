@@ -135,10 +135,13 @@ private:
     QImage compositionNodeImage(const TimelineData& tl, const CompositionNodeView& view, QSize out)
     {
         const ClipData* clip = nullptr;
+        int ownerTrack = -1;
         for (const TrackData& track : tl.videoTracks) {
             const int i = track.indexOfClip(view.clipId);
-            if (i >= 0)
+            if (i >= 0) {
                 clip = &track.clips[size_t(i)];
+                ownerTrack = int(&track - tl.videoTracks.data());
+            }
         }
         QImage image(out, QImage::Format_ARGB32_Premultiplied);
         image.fill(Qt::transparent);
@@ -171,6 +174,13 @@ private:
             defaultOwner->composition = compops::defaultComposition();
             clip = &*defaultOwner;
         }
+        const QImage savedBelow = m_below;
+        if (clip->kind == ClipKind::Adjustment && ownerTrack >= 0) {
+            // Its MediaIn is the picture of the tracks below it, as on the timeline (issue #19).
+            m_tracksBelow = ownerTrack;
+            m_below = renderTimeline(tl, clip->start + view.compFrame, out);
+            m_tracksBelow = -1;
+        }
         m_timeline = &tl;
         m_frame = clip->start + view.compFrame;
         m_out = out;
@@ -187,6 +197,7 @@ private:
         image = compositionImage(
             *clip, view.compFrame, view.nodeId, out, picture, pictureRect, solid);
         m_timeline = nullptr;
+        m_below = savedBelow;
         return image;
     }
 
@@ -208,7 +219,11 @@ private:
         const QImage savedBelow = m_below;
         {
             QPainter painter(&image);
+            // Only the tracks below an adjustment clip for its Compositing viewer (m_tracksBelow).
+            const int tracksBelow = m_depth == 0 ? m_tracksBelow : -1;
             for (const TrackData& track : tl.videoTracks) {
+                if (tracksBelow >= 0 && int(&track - tl.videoTracks.data()) >= tracksBelow)
+                    break;
                 if (!track.enabled)
                     continue;
                 const TrackFrame tf = evaluateTrack(track, frame);
@@ -257,7 +272,8 @@ private:
             }
         }
         // The timeline grade (Color page): over the composite, before the captions.
-        if (m_grades && !tl.grade.isEmpty() && !gradeops::isIdentity(tl.grade, frame))
+        if (m_grades && !(m_depth == 0 && m_tracksBelow >= 0) && !tl.grade.isEmpty()
+            && !gradeops::isIdentity(tl.grade, frame))
             applyGrade(tl.grade, frame, image);
         m_below = savedBelow;
         m_timeline = savedTimeline;
@@ -774,6 +790,7 @@ private:
     DecoderPool m_decoders;
     QSet<QString> m_warned;
     QImage m_below; ///< composite below the adjustment track being drawn (output size)
+    int m_tracksBelow = -1; ///< >= 0: the root timeline draws only the tracks below this index
     const TimelineData* m_timeline = nullptr;
     const MediaPathMap* m_media = nullptr;
     const ProxyMap* m_proxies = nullptr;

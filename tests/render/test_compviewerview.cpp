@@ -52,6 +52,46 @@ private slots:
             QVERIFY(near(px(program->image, 80, 45), 20, 20, 220, 255, 6));
         }
     }
+
+    /// Issue #19: an adjustment clip's MediaIn is the picture of the tracks below it, so its
+    /// viewer shows the video under it (not black), and not the track above it.
+    void adjustmentClipShowsTheTracksBelow()
+    {
+        TimelineData tl = emptyTimeline(160, 90);
+        ClipData v1 = solidClip(tl, QColor(220, 20, 20), 0, 50);
+        ClipData adj;
+        adj.id = tl.allocateId();
+        adj.kind = ClipKind::Adjustment;
+        adj.start = 0;
+        adj.duration = 50;
+        const quint64 adjId = adj.id;
+        ClipData v3 = solidClip(tl, QColor(20, 20, 220), 30, 20);
+        addClip(tl, TrackType::Video, 0, v1);
+        addClip(tl, TrackType::Video, 1, adj);
+        addClip(tl, TrackType::Video, 2, v3);
+
+        TimelineData stored = tl;
+        QVERIFY(editops::setClipComposition(stored, adjId, compops::defaultComposition()));
+
+        for (const bool cpu : {false, true}) {
+            Compositor::Options options;
+            options.forceCpu = cpu;
+            Compositor comp(options);
+            const char* name = cpu ? "cpu" : "gpu";
+            const TimelineData* variants[] = {&tl, &stored};
+            for (int k = 0; k < 2; ++k) {
+                // Frame 35: V3 covers everything in the timeline.
+                const auto result = comp.renderCompositionNode(
+                    snap(*variants[k]), adjId, 0, 35, {}, Quality::Full, OutputImage).get();
+                QVERIFY(result && result->ok);
+                const Px p = px(result->image, 80, 45);
+                QVERIFY2(near(p, 220, 20, 20, 255, 6),
+                    qPrintable(QStringLiteral("%1 %2 graph: %3")
+                                   .arg(name, k ? "stored" : "empty",
+                                       QString::fromLatin1(describe(p)))));
+            }
+        }
+    }
 };
 
 int main(int argc, char** argv)

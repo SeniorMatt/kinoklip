@@ -79,12 +79,16 @@ private:
     RingPuller m_puller;
 };
 
-/// 48 kHz stereo float, or int16 when @p device rejects float.
+/// 48 kHz stereo (front left / right) float, or int16 when @p device rejects float.
 QAudioFormat formatFor(const QAudioDevice& device)
 {
     QAudioFormat format;
     format.setSampleRate(kSampleRate);
     format.setChannelCount(kChannels);
+    // Named stereo positions: without them Qt's PipeWire backend opens the stream with unmapped
+    // channels (AUX0 / AUX1), which PipeWire routes to the aux ports of a multi-channel interface,
+    // so nothing is heard (Discord bug report on 1.15.0; PulseAudio maps them to FL / FR itself).
+    format.setChannelConfig(QAudioFormat::ChannelConfigStereo);
     format.setSampleFormat(QAudioFormat::Float);
     if (!device.isNull() && !device.isFormatSupported(format)) {
         format.setSampleFormat(QAudioFormat::Int16);

@@ -90,6 +90,9 @@ private:
         /// While an adjustment clip's track is drawn: the composite of the tracks below it
         /// (output-sized texture), the source of every adjustment clip. 0 otherwise.
         GLuint below = 0;
+        /// >= 0: compositeTimeline() draws only the video tracks with a lower index, without the
+        /// timeline grade (the Compositing page viewer of an adjustment clip, issue #19).
+        int tracksBelow = -1;
         bool subtitles = false; ///< draw the subtitle tracks (root timeline only)
         bool grades = true; ///< apply clip and timeline grades (false: RenderRequest::bypassGrades)
         bool dynamicZoom = true; ///< RenderRequest::dynamicZoom
