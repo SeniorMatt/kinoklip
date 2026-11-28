@@ -549,6 +549,8 @@ private:
         case ClipKind::Adjustment:
             if (m_below.isNull())
                 return false;
+            content = frameSize; // the composite below covers the frame
+            sourcePx = frameSize;
             picture = m_below;
             pictureRect = QRectF(
                 -content.width() / 2, -content.height() / 2, content.width(), content.height());
